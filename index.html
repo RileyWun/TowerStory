@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>TowerStory</title>
   <style>
     body { margin: 0; padding: 0; overflow: hidden; }
@@ -15,93 +15,156 @@
   <script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.min.js"></script>
 
   <script>
-    // --- Boot Scene ---
-    class BootScene extends Phaser.Scene {
-      constructor() { super('Boot'); }
-      preload() {}
-      create() { this.scene.start('Preload'); }
-    }
-
-    // --- Preload Scene ---
-    class PreloadScene extends Phaser.Scene {
-      constructor() { super('Preload'); }
-      preload() {
-        // Load assets
-        this.load.image('tile', 'assets/tiles/tile.png');
-        this.load.image('player', 'assets/player/player.png');
+    window.addEventListener('load', () => {
+      // --- Boot Scene ---
+      class BootScene extends Phaser.Scene {
+        constructor() { super('Boot'); }
+        preload() {}
+        create() { this.scene.start('Preload'); }
       }
-      create() { this.scene.start('Main'); }
-    }
 
-    // --- Main Scene (Manual Iso Projection) ---
-    class MainScene extends Phaser.Scene {
-      constructor() { super('Main'); }
-      create() {
-        // Iso grid parameters
-        const tileW = 38, tileH = 38;
-        const mapW = 20, mapH = 20;
-        const offsetX = (mapW * tileW) / 2;
-        const offsetY = 50;
+      // --- Preload Scene ---
+      class PreloadScene extends Phaser.Scene {
+        constructor() { super('Preload'); }
+        preload() {
+          // Load tile and player spritesheet
+          this.load.image('tile', 'assets/tiles/tile.png');
+          this.load.spritesheet(
+            'player',
+            'assets/player/Chibi-character-template_skin0_part2_by_AxulArt.png',
+            { frameWidth: 32, frameHeight: 32 }
+          );
+        }
+        create() {
+          this.scene.start('Main');
+        }
+      }
 
-        // Create tiles using manual iso projection
-        this.tilesGroup = this.add.group();
-        for (let x = 0; x < mapW; x++) {
-          for (let y = 0; y < mapH; y++) {
-            const screenX = (x - y) * (tileW / 2) + offsetX;
-            const screenY = (x + y) * (tileH / 2) + offsetY;
-            const tile = this.add.image(screenX, screenY, 'tile');
-            tile.setDepth(screenY);
-            this.tilesGroup.add(tile);
+      // --- Main Scene (Isometric + Animations) ---
+      class MainScene extends Phaser.Scene {
+        constructor() { super('Main'); }
+
+        create() {
+          // Map dimensions & offsets
+          this.tileW = 38; this.tileH = 38;
+          this.mapW = 20; this.mapH = 20;
+          this.offsetX = (this.mapW * this.tileW) / 2;
+          this.offsetY = 50;
+
+          // Create isometric grid
+          this.tilesGroup = this.add.group();
+          for (let x = 0; x < this.mapW; x++) {
+            for (let y = 0; y < this.mapH; y++) {
+              const sx = (x - y) * (this.tileW/2) + this.offsetX;
+              const sy = (x + y) * (this.tileH/2) + this.offsetY;
+              const tile = this.add.image(sx, sy, 'tile');
+              tile.setDepth(sy);
+              this.tilesGroup.add(tile);
+            }
           }
+
+          // Initial player iso coords
+          this.playerIsoX = this.mapW/2;
+          this.playerIsoY = this.mapH/2;
+
+          // Create player sprite
+          this.player = this.add.sprite(0, 0, 'player');
+          this.player.setOrigin(0.5, 0.9);
+
+          // Define animations (4-directional walk cycles)
+          this.anims.create({
+            key: 'walk-down',
+            frames: this.anims.generateFrameNumbers('player', { start: 0, end: 3 }),
+            frameRate: 8,
+            repeat: -1
+          });
+          this.anims.create({
+            key: 'walk-left',
+            frames: this.anims.generateFrameNumbers('player', { start: 12, end: 15 }),
+            frameRate: 8,
+            repeat: -1
+          });
+          this.anims.create({
+            key: 'walk-right',
+            frames: this.anims.generateFrameNumbers('player', { start: 24, end: 27 }),
+            frameRate: 8,
+            repeat: -1
+          });
+          this.anims.create({
+            key: 'walk-up',
+            frames: this.anims.generateFrameNumbers('player', { start: 36, end: 39 }),
+            frameRate: 8,
+            repeat: -1
+          });
+
+          // Input keys (WASD)
+          this.keys = this.input.keyboard.addKeys('W,A,S,D');
+
+          // Camera follow setup
+          const cam = this.cameras.main;
+          cam.setBounds(0, 0, this.mapW*this.tileW, this.mapH*this.tileH);
+          cam.startFollow(this.player, true, 0.1, 0.1);
+
+          // Initial render
+          this.updatePlayerPosition();
         }
 
-        // Player initial iso coords
-        this.playerIsoX = mapW / 2;
-        this.playerIsoY = mapH / 2;
-        this.player = this.add.image(0, 0, 'player');
-        this.player.setOrigin(0.5, 0.9);
+        update(time, delta) {
+          const dt = delta / 1000;
+          const speed = 3; // tiles per second
+          let moving = false;
+          let lastDir = this.lastDir || 'down';
 
-        // Input keys (WASD)
-        this.keys = this.input.keyboard.addKeys({
-          up: 'W', left: 'A', down: 'S', right: 'D'
-        });
+          // Movement & animation selection
+          if (this.keys.A.isDown) {
+            this.playerIsoX -= speed * dt;
+            this.player.play('walk-left', true);
+            lastDir = 'left';
+            moving = true;
+          } else if (this.keys.D.isDown) {
+            this.playerIsoX += speed * dt;
+            this.player.play('walk-right', true);
+            lastDir = 'right';
+            moving = true;
+          } else if (this.keys.W.isDown) {
+            this.playerIsoY -= speed * dt;
+            this.player.play('walk-up', true);
+            lastDir = 'up';
+            moving = true;
+          } else if (this.keys.S.isDown) {
+            this.playerIsoY += speed * dt;
+            this.player.play('walk-down', true);
+            lastDir = 'down';
+            moving = true;
+          }
 
-        // Camera follow
-        const cam = this.cameras.main;
-        cam.setBounds(0, 0, mapW * tileW, mapH * tileH);
-        cam.startFollow(this.player, true, 0.1, 0.1);
+          // Stop animation if not moving
+          if (!moving) {
+            this.player.anims.stop();
+            // Show first frame of last direction as idle
+            const idleFrames = { down:0, left:12, right:24, up:36 };
+            this.player.setFrame(idleFrames[lastDir]);
+          }
+          this.lastDir = lastDir;
 
-        // Initial render
-        this.updatePlayerPosition(tileW, tileH, offsetX, offsetY);
+          // Clamp within map bounds
+          this.playerIsoX = Phaser.Math.Clamp(this.playerIsoX, 0, this.mapW - 1);
+          this.playerIsoY = Phaser.Math.Clamp(this.playerIsoY, 0, this.mapH - 1);
+
+          // Update screen position
+          this.updatePlayerPosition();
+        }
+
+        updatePlayerPosition() {
+          const x = this.playerIsoX, y = this.playerIsoY;
+          const sx = (x - y) * (this.tileW/2) + this.offsetX;
+          const sy = (x + y) * (this.tileH/2) + this.offsetY;
+          this.player.setPosition(sx, sy);
+          this.player.setDepth(sy);
+        }
       }
 
-      update(time, delta) {
-        const dt = delta / 1000;
-        const speed = 3; // tiles per second
-        if (this.keys.left.isDown)  this.playerIsoX -= speed * dt;
-        if (this.keys.right.isDown) this.playerIsoX += speed * dt;
-        if (this.keys.up.isDown)    this.playerIsoY -= speed * dt;
-        if (this.keys.down.isDown)  this.playerIsoY += speed * dt;
-        // Clamp
-        this.playerIsoX = Phaser.Math.Clamp(this.playerIsoX, 0, 19);
-        this.playerIsoY = Phaser.Math.Clamp(this.playerIsoY, 0, 19);
-
-        // Update transform
-        this.updatePlayerPosition(38, 38, (20*38)/2, 50);
-      }
-
-      updatePlayerPosition(tileW, tileH, offsetX, offsetY) {
-        const isoX = this.playerIsoX;
-        const isoY = this.playerIsoY;
-        const screenX = (isoX - isoY) * (tileW / 2) + offsetX;
-        const screenY = (isoX + isoY) * (tileH / 2) + offsetY;
-        this.player.setPosition(screenX, screenY);
-        this.player.setDepth(screenY);
-      }
-    }
-
-    // --- Game Config & Launch ---
-    window.addEventListener('load', () => {
+      // --- Game Configuration & Launch ---
       const config = {
         type: Phaser.AUTO,
         parent: 'game-container',
