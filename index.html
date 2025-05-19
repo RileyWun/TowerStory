@@ -80,7 +80,8 @@
           // Camera follow
           const cam = this.cameras.main;
           cam.setBounds(0, 0, this.mapW*this.tileW, this.mapH*this.tileH);
-          cam.startFollow(this.player, true, 0.1, 0.1);
+          // Follow player with vertical offset to prevent clipping
+          cam.startFollow(this.player, true, 0.1, 0.1, 0, -this.tileH);
 
           // Initial draw
           this.updatePlayerPosition();
