@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>TowerStory</title>
+  <style>
+    body { margin: 0; padding: 0; overflow: hidden; }
+    #game-container { width: 100vw; height: 100vh; }
+  </style>
+</head>
+<body>
+  <div id="game-container"></div>
+
+  <!-- Phaser 3 -->
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.min.js"></script>
+  <!-- Phaser Isometric Plugin -->
+  <script src="https://cdn.jsdelivr.net/npm/phaser3-plugin-isometric/dist/phaser3-plugin-isometric.min.js"></script>
+
+  <!-- Game Code -->
+  <script>
+    // Configuration
+    const config = {
+      type: Phaser.AUTO,
+      parent: 'game-container',
+      width: 800,
+      height: 600,
+      backgroundColor: '#1d212d',
+      scene: [BootScene, PreloadScene, MainScene],
+      plugins: {
+        scene: [
+          { key: 'IsoPlugin', plugin: PhaserIsoPlugin, mapping: 'iso' }
+        ]
+      }
+    };
+
+    // Create game instance
+    const game = new Phaser.Game(config);
+
+    // Boot Scene: minimal setup
+    class BootScene extends Phaser.Scene {
+      constructor() { super('Boot'); }
+      preload() {
+        // load any assets needed for preload screen
+      }
+      create() {
+        this.scene.start('Preload');
+      }
+    }
+
+    // Preload Scene: load core assets
+    class PreloadScene extends Phaser.Scene {
+      constructor() { super('Preload'); }
+      preload() {
+        // Example: this.load.image('tileset', 'assets/tileset.png');
+      }
+      create() {
+        this.scene.start('Main');
+      }
+    }
+
+    // Main Scene: isometric world
+    class MainScene extends Phaser.Scene {
+      constructor() { super('Main'); }
+      create() {
+        // Initialize isometric plugin
+        this.isoGroup = this.add.group();
+        // TODO: generate isometric grid, load tilemap, add player
+      }
+      update(time, delta) {
+        // TODO: handle player movement, input, UI
+      }
+    }
+  </script>
+</body>
+</html>
