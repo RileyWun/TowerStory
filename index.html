@@ -57,8 +57,9 @@
           this.tileW = 38; this.tileH = 38;
           this.mapW = 20; this.mapH = 20;
 
-          // Offsets based on dynamic scale
+          // Offsets based on dynamic scale: center map with headroom
           this.offsetX = this.scale.width / 2;
+          this.offsetY = this.scale.height / 2 + this.tileH;
           // Position map so its bottom edge aligns near bottom of viewport
           this.offsetY = this.scale.height - (this.mapH * this.tileH) / 2;
 
@@ -98,7 +99,7 @@
           // Camera follow with vertical offset
           const cam = this.cameras.main;
           cam.setBounds(0, 0, this.mapW * this.tileW, this.mapH * this.tileH);
-          cam.startFollow(this.player, true, 0.1, 0.1, 0, -this.tileH * 2);
+          cam.startFollow(this.player, true, 0.1, 0.1, 0, -this.tileH);
 
           // Initial placement
           this.updatePlayerPosition();
