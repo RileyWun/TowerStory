@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
   <title>TowerStory</title>
   <style>
     body { margin: 0; padding: 0; overflow: hidden; }
@@ -13,129 +13,109 @@
 
   <!-- Phaser 3 -->
   <script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.min.js"></script>
-  <!-- Phaser Isometric Plugin -->
-  <script src="https://cdn.jsdelivr.net/npm/phaser3-plugin-isometric/dist/phaser3-plugin-isometric.min.js"></script>
+  <!-- Phaser Isometric Plugin (v0.0.7) -->
+  <script src="https://cdn.jsdelivr.net/npm/phaser3-plugin-isometric@0.0.7/dist/phaser3-plugin-isometric.min.js"></script>
 
-  <!-- Game Code for TowerStory -->
   <script>
-    // Configuration
-    const config = {
-      type: Phaser.AUTO,
-      parent: 'game-container',
-      width: 800,
-      height: 600,
-      backgroundColor: '#1d212d',
-      scene: [BootScene, PreloadScene, MainScene],
-      plugins: {
-        scene: [ { key: 'IsoPlugin', plugin: PhaserIsoPlugin, mapping: 'iso' } ]
-      }
-    };
+    window.addEventListener('load', () => {
+      console.log('Iso Plugin object:', window.IsoPlugin);
 
-    // Create game instance
-    const game = new Phaser.Game(config);
+      const config = {
+        type: Phaser.AUTO,
+        parent: 'game-container',
+        width: 800,
+        height: 600,
+        backgroundColor: '#1d212d',
+        scene: [BootScene, PreloadScene, MainScene],
+        plugins: {
+          scene: [
+            {
+              key: 'iso',
+              plugin: window.IsoPlugin,
+              mapping: 'iso'
+            }
+          ]
+        }
+      };
 
-    // Boot Scene
-    class BootScene extends Phaser.Scene {
-      constructor() { super('Boot'); }
-      preload() {
-        // assets for preload UI if any
-      }
-      create() {
-        this.scene.start('Preload');
-      }
-    }
+      const game = new Phaser.Game(config);
 
-    // Preload Scene
-    class PreloadScene extends Phaser.Scene {
-      constructor() { super('Preload'); }
-      preload() {
-        // Load tile & player images
-        this.load.image('tile', 'assets/tiles/tile.png');
-        this.load.image('player', 'assets/player/player.png');
+      class BootScene extends Phaser.Scene {
+        constructor() { super('Boot'); }
+        preload() {}
+        create() { this.scene.start('Preload'); }
       }
-      create() {
-        this.scene.start('Main');
+
+      class PreloadScene extends Phaser.Scene {
+        constructor() { super('Preload'); }
+        preload() {
+          this.load.image('tile', 'assets/tiles/tile.png');
+          this.load.image('player', 'assets/player/player.png');
+        }
+        create() { this.scene.start('Main'); }
       }
-    }
 
-    // Main Scene
-    class MainScene extends Phaser.Scene {
-      constructor() { super('Main'); }
-      create() {
-        // Group for sorting isometric sprites
-        this.isoGroup = this.add.group();
-
-        // Generate a simple isometric grid
-        const tileSize = 38;
-        const mapWidth = 20;
-        const mapHeight = 20;
-        for (let x = 0; x < mapWidth; x++) {
-          for (let y = 0; y < mapHeight; y++) {
-            const isoX = x * tileSize;
-            const isoY = y * tileSize;
-            const tile = this.iso.add.isoSprite(isoX, isoY, 0, 'tile');
-            tile.setDepth(tile.y);
-            this.isoGroup.add(tile);
+      class MainScene extends Phaser.Scene {
+        constructor() { super('Main'); }
+        create() {
+          // Generate isometric grid
+          this.isoGroup = this.add.group();
+          const tileSize = 38;
+          const mapW = 20, mapH = 20;
+          for (let x = 0; x < mapW; x++) {
+            for (let y = 0; y < mapH; y++) {
+              const isoX = x * tileSize;
+              const isoY = y * tileSize;
+              const tile = this.iso.add.isoSprite(isoX, isoY, 0, 'tile');
+              tile.setDepth(tile.y);
+              this.isoGroup.add(tile);
+            }
           }
+
+          // Player
+          const startX = (mapW/2) * tileSize;
+          const startY = (mapH/2) * tileSize;
+          this.player = this.iso.add.isoSprite(startX, startY, 0, 'player');
+          this.player.setOrigin(0.5, 0.9);
+          this.player.setDepth(this.player.y);
+
+          // Input
+          this.keys = this.input.keyboard.addKeys({
+            W: 'W', A: 'A', S: 'S', D: 'D'
+          });
+          this.cursors = this.input.keyboard.createCursorKeys();
+
+          // Camera
+          const cam = this.cameras.main;
+          cam.setBounds(0, 0, mapW*tileSize, mapH*tileSize);
+          cam.startFollow(this.player, true, 0.1, 0.1);
+
+          // Drag
+          this.input.on('pointerdown', () => this.dragging=true);
+          this.input.on('pointerup', () => this.dragging=false);
+          this.input.on('pointermove', (p) => {
+            if (this.dragging) {
+              cam.scrollX -= (p.x - p.prevPosition.x)/cam.zoom;
+              cam.scrollY -= (p.y - p.prevPosition.y)/cam.zoom;
+            }
+          });
         }
 
-        // Add player at center of map
-        const startX = (mapWidth / 2) * tileSize;
-        const startY = (mapHeight / 2) * tileSize;
-        this.player = this.iso.add.isoSprite(startX, startY, 0, 'player');
-        this.player.setDepth(this.player.y);
+        update(t, dt) {
+          const delta = dt/1000;
+          // Move player
+          const speed = 100;
+          if (this.keys.A.isDown) this.player.isoX -= speed*delta;
+          if (this.keys.D.isDown) this.player.isoX += speed*delta;
+          if (this.keys.W.isDown) this.player.isoY -= speed*delta;
+          if (this.keys.S.isDown) this.player.isoY += speed*delta;
 
-        // Player movement keys (WASD)
-        this.keys = this.input.keyboard.addKeys({
-          up: Phaser.Input.Keyboard.KeyCodes.W,
-          left: Phaser.Input.Keyboard.KeyCodes.A,
-          down: Phaser.Input.Keyboard.KeyCodes.S,
-          right: Phaser.Input.Keyboard.KeyCodes.D
-        });
-
-        // Camera setup
-        const worldWidth = mapWidth * tileSize;
-        const worldHeight = mapHeight * tileSize;
-        const cam = this.cameras.main;
-        cam.setBounds(0, 0, worldWidth, worldHeight);
-        cam.startFollow(this.player, true, 0.1, 0.1);
-        cam.centerOn(startX, startY);
-
-        // Enable camera drag
-        this.input.on('pointerdown', () => { this.dragging = true; });
-        this.input.on('pointerup', () => { this.dragging = false; });
-        this.input.on('pointermove', (pointer) => {
-          if (this.dragging) {
-            cam.scrollX -= (pointer.x - pointer.prevPosition.x) / cam.zoom;
-            cam.scrollY -= (pointer.y - pointer.prevPosition.y) / cam.zoom;
-          }
-        });
-
-        // Maintain arrow keys for camera panning
-        this.cursors = this.input.keyboard.createCursorKeys();
+          // Depth sort
+          this.isoGroup.getChildren().sort((a,b)=>a.y-b.y);
+          this.player.setDepth(this.player.y);
+        }
       }
-
-      update(time, delta) {
-        // Depth sort for isometric layering
-        this.isoGroup.getChildren().sort((a, b) => a.y - b.y);
-        this.player.setDepth(this.player.y);
-
-        // Player movement
-        const moveSpeed = 100;
-        const dt = delta / 1000;
-        if (this.keys.left.isDown)  this.player.isoX -= moveSpeed * dt;
-        if (this.keys.right.isDown) this.player.isoX += moveSpeed * dt;
-        if (this.keys.up.isDown)    this.player.isoY -= moveSpeed * dt;
-        if (this.keys.down.isDown)  this.player.isoY += moveSpeed * dt;
-
-        // Camera panning with arrow keys
-        const camSpeed = 300;
-        if (this.cursors.left.isDown)  this.cameras.main.scrollX -= camSpeed * dt;
-        if (this.cursors.right.isDown) this.cameras.main.scrollX += camSpeed * dt;
-        if (this.cursors.up.isDown)    this.cameras.main.scrollY -= camSpeed * dt;
-        if (this.cursors.down.isDown)  this.cameras.main.scrollY += camSpeed * dt;
-      }
-    }
+    });
   </script>
 </body>
 </html>
