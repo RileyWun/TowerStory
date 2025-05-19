@@ -13,33 +13,14 @@
 
   <!-- Phaser 3 -->
   <script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.min.js"></script>
-  <!-- Phaser Isometric Plugin (v0.0.7) -->
-  <script src="https://cdn.jsdelivr.net/npm/phaser3-plugin-isometric@0.0.7/dist/phaser3-plugin-isometric.min.js"></script>
+  <!-- Phaser Isometric Plugin via unpkg (correct MIME) -->
+  <script src="https://unpkg.com/phaser3-plugin-isometric@0.0.7/dist/phaser3-plugin-isometric.min.js"></script>
 
   <script>
     window.addEventListener('load', () => {
-      console.log('Iso Plugin object:', window.IsoPlugin);
+      console.log('PhaserIsoPlugin:', window.PhaserIsoPlugin);
 
-      const config = {
-        type: Phaser.AUTO,
-        parent: 'game-container',
-        width: 800,
-        height: 600,
-        backgroundColor: '#1d212d',
-        scene: [BootScene, PreloadScene, MainScene],
-        plugins: {
-          scene: [
-            {
-              key: 'iso',
-              plugin: window.IsoPlugin,
-              mapping: 'iso'
-            }
-          ]
-        }
-      };
-
-      const game = new Phaser.Game(config);
-
+      // -- Scene Definitions --
       class BootScene extends Phaser.Scene {
         constructor() { super('Boot'); }
         preload() {}
@@ -58,7 +39,7 @@
       class MainScene extends Phaser.Scene {
         constructor() { super('Main'); }
         create() {
-          // Generate isometric grid
+          // Iso group and grid
           this.isoGroup = this.add.group();
           const tileSize = 38;
           const mapW = 20, mapH = 20;
@@ -73,48 +54,61 @@
           }
 
           // Player
-          const startX = (mapW/2) * tileSize;
-          const startY = (mapH/2) * tileSize;
+          const startX = (mapW / 2) * tileSize;
+          const startY = (mapH / 2) * tileSize;
           this.player = this.iso.add.isoSprite(startX, startY, 0, 'player');
           this.player.setOrigin(0.5, 0.9);
           this.player.setDepth(this.player.y);
 
           // Input
-          this.keys = this.input.keyboard.addKeys({
-            W: 'W', A: 'A', S: 'S', D: 'D'
-          });
+          this.keys = this.input.keyboard.addKeys('W,A,S,D');
           this.cursors = this.input.keyboard.createCursorKeys();
 
-          // Camera
+          // Camera follow
           const cam = this.cameras.main;
-          cam.setBounds(0, 0, mapW*tileSize, mapH*tileSize);
+          cam.setBounds(0, 0, mapW * tileSize, mapH * tileSize);
           cam.startFollow(this.player, true, 0.1, 0.1);
 
-          // Drag
-          this.input.on('pointerdown', () => this.dragging=true);
-          this.input.on('pointerup', () => this.dragging=false);
+          // Dragging
+          this.input.on('pointerdown', () => this.dragging = true);
+          this.input.on('pointerup', () => this.dragging = false);
           this.input.on('pointermove', (p) => {
             if (this.dragging) {
-              cam.scrollX -= (p.x - p.prevPosition.x)/cam.zoom;
-              cam.scrollY -= (p.y - p.prevPosition.y)/cam.zoom;
+              cam.scrollX -= (p.x - p.prevPosition.x) / cam.zoom;
+              cam.scrollY -= (p.y - p.prevPosition.y) / cam.zoom;
             }
           });
         }
 
-        update(t, dt) {
-          const delta = dt/1000;
-          // Move player
+        update(time, delta) {
+          const dt = delta / 1000;
           const speed = 100;
-          if (this.keys.A.isDown) this.player.isoX -= speed*delta;
-          if (this.keys.D.isDown) this.player.isoX += speed*delta;
-          if (this.keys.W.isDown) this.player.isoY -= speed*delta;
-          if (this.keys.S.isDown) this.player.isoY += speed*delta;
+          if (this.keys.A.isDown) this.player.isoX -= speed * dt;
+          if (this.keys.D.isDown) this.player.isoX += speed * dt;
+          if (this.keys.W.isDown) this.player.isoY -= speed * dt;
+          if (this.keys.S.isDown) this.player.isoY += speed * dt;
 
           // Depth sort
-          this.isoGroup.getChildren().sort((a,b)=>a.y-b.y);
+          this.isoGroup.getChildren().sort((a, b) => a.y - b.y);
           this.player.setDepth(this.player.y);
         }
       }
+
+      // -- Game Configuration --
+      const config = {
+        type: Phaser.AUTO,
+        parent: 'game-container',
+        width: 800,
+        height: 600,
+        backgroundColor: '#1d212d',
+        scene: [BootScene, PreloadScene, MainScene],
+        plugins: {
+          scene: [{ key: 'iso', plugin: PhaserIsoPlugin, mapping: 'iso' }]
+        }
+      };
+
+      // -- Launch Game --
+      const game = new Phaser.Game(config);
     });
   </script>
 </body>
