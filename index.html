@@ -28,7 +28,7 @@
         constructor() { super('Preload'); }
         preload() {
           this.load.image('tile', 'assets/tiles/tile.png');
-          this.load.spritesheet('player', 'assets/player/Chibi-character-template_skin0_part2_by_AxulArt.png', { frameWidth: 32, frameHeight: 32 });
+          this.load.spritesheet('player', 'assets/player/Chibi-character-template_skin0_part2_by_AxulArt.png', { frameWidth: 32, frameHeight: 48 });
         }
         create() { this.scene.start('Main'); }
       }
@@ -44,7 +44,7 @@
 
           // Dynamic offsets: center map in viewport
           this.offsetX = this.scale.width / 2;
-          this.offsetY = this.scale.height / 4;
+          this.offsetY = this.scale.height / 2;
 
           // Create isometric grid
           this.tilesGroup = this.add.group();
