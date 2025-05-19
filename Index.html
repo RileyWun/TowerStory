@@ -36,38 +36,83 @@
     // Create game instance
     const game = new Phaser.Game(config);
 
-    // Boot Scene: minimal setup
+    // Boot Scene
     class BootScene extends Phaser.Scene {
       constructor() { super('Boot'); }
       preload() {
-        // load any assets needed for preload screen
+        // assets for preload UI if any
       }
       create() {
         this.scene.start('Preload');
       }
     }
 
-    // Preload Scene: load core assets
+    // Preload Scene
     class PreloadScene extends Phaser.Scene {
       constructor() { super('Preload'); }
       preload() {
-        // Example: this.load.image('tileset', 'assets/tileset.png');
+        // Load tile image (e.g., a simple square or tile texture)
+        this.load.image('tile', 'assets/tiles/tile.png');
       }
       create() {
         this.scene.start('Main');
       }
     }
 
-    // Main Scene: isometric world
+    // Main Scene
     class MainScene extends Phaser.Scene {
       constructor() { super('Main'); }
       create() {
-        // Initialize isometric plugin
+        // Create a group for sorting
         this.isoGroup = this.add.group();
-        // TODO: generate isometric grid, load tilemap, add player
+
+        // Generate a simple isometric grid
+        const tileSize = 38;
+        const mapWidth = 20;
+        const mapHeight = 20;
+        for (let x = 0; x < mapWidth; x++) {
+          for (let y = 0; y < mapHeight; y++) {
+            // position in iso coordinates
+            const isoX = x * tileSize;
+            const isoY = y * tileSize;
+            const tile = this.iso.add.isoSprite(isoX, isoY, 0, 'tile');
+            tile.setDepth(tile.y);
+            this.isoGroup.add(tile);
+          }
+        }
+
+        // Camera setup
+        const worldWidth = mapWidth * tileSize;
+        const worldHeight = mapHeight * tileSize;
+        this.cameras.main.setBounds(0, 0, worldWidth, worldHeight);
+        this.cameras.main.centerOn(worldWidth / 2, worldHeight / 2);
+
+        // Enable camera drag
+        this.input.on('pointerdown', () => { this.dragging = true; });
+        this.input.on('pointerup', () => { this.dragging = false; });
+        this.input.on('pointermove', (pointer) => {
+          if (this.dragging) {
+            const cam = this.cameras.main;
+            cam.scrollX -= (pointer.x - pointer.prevPosition.x) / cam.zoom;
+            cam.scrollY -= (pointer.y - pointer.prevPosition.y) / cam.zoom;
+          }
+        });
+
+        // Arrow key panning
+        this.cursors = this.input.keyboard.createCursorKeys();
       }
+
       update(time, delta) {
-        // TODO: handle player movement, input, UI
+        // Depth sort
+        this.isoGroup.getChildren().sort((a, b) => a.y - b.y);
+
+        // Camera move speed
+        const speed = 300;
+        const cam = this.cameras.main;
+        if (this.cursors.left.isDown)  cam.scrollX -= speed * delta / 1000;
+        if (this.cursors.right.isDown) cam.scrollX += speed * delta / 1000;
+        if (this.cursors.up.isDown)    cam.scrollY -= speed * delta / 1000;
+        if (this.cursors.down.isDown)  cam.scrollY += speed * delta / 1000;
       }
     }
   </script>
