@@ -13,9 +13,17 @@
 
   <!-- Phaser 3 -->
   <script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.min.js"></script>
-    <!-- Phaser Isometric Plugin (local copy) -->
-  <!-- Download `phaser3-plugin-isometric.min.js` from the plugin repo and place it here -->
+      <!-- Phaser Isometric Plugin (wrapped CommonJS to browser globals) -->
+  <script>
+    // Provide CommonJS module.exports for plugin
+    window.module = { exports: {} };
+    window.exports = window.module.exports;
+  </script>
   <script src="assets/js/phaser3-plugin-isometric.min.js"></script>
+  <script>
+    // Export plugin constructor to global for Phaser mapping
+    window.PhaserIsoPlugin = module.exports;
+  </script>
 
   <script>
     window.addEventListener('load', () => {
