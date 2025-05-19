@@ -13,111 +13,104 @@
 
   <!-- Phaser 3 -->
   <script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.min.js"></script>
-      <!-- Phaser Isometric Plugin (wrapped CommonJS to browser globals) -->
-  <script>
-    // Provide CommonJS module.exports for plugin
-    window.module = { exports: {} };
-    window.exports = window.module.exports;
-  </script>
-  <script src="assets/js/phaser3-plugin-isometric.min.js"></script>
-  <script>
-    // Export plugin constructor to global for Phaser mapping
-    window.PhaserIsoPlugin = module.exports;
-  </script>
 
   <script>
-    window.addEventListener('load', () => {
-      console.log('PhaserIsoPlugin:', window.PhaserIsoPlugin);
+    // --- Boot Scene ---
+    class BootScene extends Phaser.Scene {
+      constructor() { super('Boot'); }
+      preload() {}
+      create() { this.scene.start('Preload'); }
+    }
 
-      // -- Scene Definitions --
-      class BootScene extends Phaser.Scene {
-        constructor() { super('Boot'); }
-        preload() {}
-        create() { this.scene.start('Preload'); }
+    // --- Preload Scene ---
+    class PreloadScene extends Phaser.Scene {
+      constructor() { super('Preload'); }
+      preload() {
+        // Load assets
+        this.load.image('tile', 'assets/tiles/tile.png');
+        this.load.image('player', 'assets/player/player.png');
       }
+      create() { this.scene.start('Main'); }
+    }
 
-      class PreloadScene extends Phaser.Scene {
-        constructor() { super('Preload'); }
-        preload() {
-          this.load.image('tile', 'assets/tiles/tile.png');
-          this.load.image('player', 'assets/player/player.png');
-        }
-        create() { this.scene.start('Main'); }
-      }
+    // --- Main Scene (Manual Iso Projection) ---
+    class MainScene extends Phaser.Scene {
+      constructor() { super('Main'); }
+      create() {
+        // Iso grid parameters
+        const tileW = 38, tileH = 38;
+        const mapW = 20, mapH = 20;
+        const offsetX = (mapW * tileW) / 2;
+        const offsetY = 50;
 
-      class MainScene extends Phaser.Scene {
-        constructor() { super('Main'); }
-        create() {
-          // Iso group and grid
-          this.isoGroup = this.add.group();
-          const tileSize = 38;
-          const mapW = 20, mapH = 20;
-          for (let x = 0; x < mapW; x++) {
-            for (let y = 0; y < mapH; y++) {
-              const isoX = x * tileSize;
-              const isoY = y * tileSize;
-              const tile = this.iso.add.isoSprite(isoX, isoY, 0, 'tile');
-              tile.setDepth(tile.y);
-              this.isoGroup.add(tile);
-            }
+        // Create tiles using manual iso projection
+        this.tilesGroup = this.add.group();
+        for (let x = 0; x < mapW; x++) {
+          for (let y = 0; y < mapH; y++) {
+            const screenX = (x - y) * (tileW / 2) + offsetX;
+            const screenY = (x + y) * (tileH / 2) + offsetY;
+            const tile = this.add.image(screenX, screenY, 'tile');
+            tile.setDepth(screenY);
+            this.tilesGroup.add(tile);
           }
-
-          // Player
-          const startX = (mapW / 2) * tileSize;
-          const startY = (mapH / 2) * tileSize;
-          this.player = this.iso.add.isoSprite(startX, startY, 0, 'player');
-          this.player.setOrigin(0.5, 0.9);
-          this.player.setDepth(this.player.y);
-
-          // Input
-          this.keys = this.input.keyboard.addKeys('W,A,S,D');
-          this.cursors = this.input.keyboard.createCursorKeys();
-
-          // Camera follow
-          const cam = this.cameras.main;
-          cam.setBounds(0, 0, mapW * tileSize, mapH * tileSize);
-          cam.startFollow(this.player, true, 0.1, 0.1);
-
-          // Dragging
-          this.input.on('pointerdown', () => this.dragging = true);
-          this.input.on('pointerup', () => this.dragging = false);
-          this.input.on('pointermove', (p) => {
-            if (this.dragging) {
-              cam.scrollX -= (p.x - p.prevPosition.x) / cam.zoom;
-              cam.scrollY -= (p.y - p.prevPosition.y) / cam.zoom;
-            }
-          });
         }
 
-        update(time, delta) {
-          const dt = delta / 1000;
-          const speed = 100;
-          if (this.keys.A.isDown) this.player.isoX -= speed * dt;
-          if (this.keys.D.isDown) this.player.isoX += speed * dt;
-          if (this.keys.W.isDown) this.player.isoY -= speed * dt;
-          if (this.keys.S.isDown) this.player.isoY += speed * dt;
+        // Player initial iso coords
+        this.playerIsoX = mapW / 2;
+        this.playerIsoY = mapH / 2;
+        this.player = this.add.image(0, 0, 'player');
+        this.player.setOrigin(0.5, 0.9);
 
-          // Depth sort
-          this.isoGroup.getChildren().sort((a, b) => a.y - b.y);
-          this.player.setDepth(this.player.y);
-        }
+        // Input keys (WASD)
+        this.keys = this.input.keyboard.addKeys({
+          up: 'W', left: 'A', down: 'S', right: 'D'
+        });
+
+        // Camera follow
+        const cam = this.cameras.main;
+        cam.setBounds(0, 0, mapW * tileW, mapH * tileH);
+        cam.startFollow(this.player, true, 0.1, 0.1);
+
+        // Initial render
+        this.updatePlayerPosition(tileW, tileH, offsetX, offsetY);
       }
 
-      // -- Game Configuration --
+      update(time, delta) {
+        const dt = delta / 1000;
+        const speed = 3; // tiles per second
+        if (this.keys.left.isDown)  this.playerIsoX -= speed * dt;
+        if (this.keys.right.isDown) this.playerIsoX += speed * dt;
+        if (this.keys.up.isDown)    this.playerIsoY -= speed * dt;
+        if (this.keys.down.isDown)  this.playerIsoY += speed * dt;
+        // Clamp
+        this.playerIsoX = Phaser.Math.Clamp(this.playerIsoX, 0, 19);
+        this.playerIsoY = Phaser.Math.Clamp(this.playerIsoY, 0, 19);
+
+        // Update transform
+        this.updatePlayerPosition(38, 38, (20*38)/2, 50);
+      }
+
+      updatePlayerPosition(tileW, tileH, offsetX, offsetY) {
+        const isoX = this.playerIsoX;
+        const isoY = this.playerIsoY;
+        const screenX = (isoX - isoY) * (tileW / 2) + offsetX;
+        const screenY = (isoX + isoY) * (tileH / 2) + offsetY;
+        this.player.setPosition(screenX, screenY);
+        this.player.setDepth(screenY);
+      }
+    }
+
+    // --- Game Config & Launch ---
+    window.addEventListener('load', () => {
       const config = {
         type: Phaser.AUTO,
         parent: 'game-container',
-        width: 800,
-        height: 600,
+        width: window.innerWidth,
+        height: window.innerHeight,
         backgroundColor: '#1d212d',
-        scene: [BootScene, PreloadScene, MainScene],
-        plugins: {
-          scene: [{ key: 'iso', plugin: PhaserIsoPlugin, mapping: 'iso' }]
-        }
+        scene: [BootScene, PreloadScene, MainScene]
       };
-
-      // -- Launch Game --
-      const game = new Phaser.Game(config);
+      new Phaser.Game(config);
     });
   </script>
 </body>
