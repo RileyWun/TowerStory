@@ -4,8 +4,23 @@
   <meta charset="UTF-8" />
   <title>TowerStory</title>
   <style>
-    body { margin: 0; padding: 0; overflow: hidden; }
-    #game-container { width: 100vw; height: 100vh; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background-color: #1d212d;
+    }
+    #game-container {
+      width: 100%;
+      height: 100%;
+    }
+    #game-container canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
   </style>
 </head>
 <body>
@@ -38,8 +53,11 @@
         constructor() { super('Main'); }
 
         create() {
+          // Tile and map settings
           this.tileW = 38; this.tileH = 38;
           this.mapW = 20; this.mapH = 20;
+
+          // Offsets based on dynamic scale
           this.offsetX = this.scale.width / 2;
           this.offsetY = this.scale.height / 2;
 
@@ -47,129 +65,128 @@
           this.tilesGroup = this.add.group();
           for (let x = 0; x < this.mapW; x++) {
             for (let y = 0; y < this.mapH; y++) {
-              const sx = (x - y) * (this.tileW/2) + this.offsetX;
-              const sy = (x + y) * (this.tileH/2) + this.offsetY;
+              const sx = (x - y) * (this.tileW / 2) + this.offsetX;
+              const sy = (x + y) * (this.tileH / 2) + this.offsetY;
               const tile = this.add.image(sx, sy, 'tile');
               tile.setDepth(sy);
               this.tilesGroup.add(tile);
             }
           }
 
-          // Player ISO coords
+          // Player ISO coordinates
           this.playerIsoX = this.mapW / 2;
           this.playerIsoY = this.mapH / 2;
 
-          // Player sprite
+          // Create player sprite
           this.player = this.add.sprite(0, 0, 'player');
           this.player.setOrigin(0.5, 1);
 
-          // Animations: cardinal
-          this.anims.create({ key: 'walk-down', frames: this.anims.generateFrameNumbers('player', { start: 0, end: 3 }), frameRate: 8, repeat: -1 });
-          this.anims.create({ key: 'walk-left', frames: this.anims.generateFrameNumbers('player', { start: 12, end: 15 }), frameRate: 8, repeat: -1 });
-          this.anims.create({ key: 'walk-right', frames: this.anims.generateFrameNumbers('player', { start: 24, end: 27 }), frameRate: 8, repeat: -1 });
-          this.anims.create({ key: 'walk-up', frames: this.anims.generateFrameNumbers('player', { start: 36, end: 39 }), frameRate: 8, repeat: -1 });
-          // Animations: diagonal
-          this.anims.create({ key: 'walk-down-left',  frames: this.anims.generateFrameNumbers('player', { start: 48,  end: 51 }), frameRate: 8, repeat: -1 });
-          this.anims.create({ key: 'walk-down-right', frames: this.anims.generateFrameNumbers('player', { start: 60,  end: 63 }), frameRate: 8, repeat: -1 });
-          this.anims.create({ key: 'walk-up-left',    frames: this.anims.generateFrameNumbers('player', { start: 72,  end: 75 }), frameRate: 8, repeat: -1 });
-          this.anims.create({ key: 'walk-up-right',   frames: this.anims.generateFrameNumbers('player', { start: 84,  end: 87 }), frameRate: 8, repeat: -1 });
+          // Define animations
+          this.anims.create({ key: 'walk-down',       frames: this.anims.generateFrameNumbers('player', { start: 0,   end: 3 }),   frameRate: 8, repeat: -1 });
+          this.anims.create({ key: 'walk-left',       frames: this.anims.generateFrameNumbers('player', { start: 12,  end: 15 }),  frameRate: 8, repeat: -1 });
+          this.anims.create({ key: 'walk-right',      frames: this.anims.generateFrameNumbers('player', { start: 24,  end: 27 }),  frameRate: 8, repeat: -1 });
+          this.anims.create({ key: 'walk-up',         frames: this.anims.generateFrameNumbers('player', { start: 36,  end: 39 }),  frameRate: 8, repeat: -1 });
+          this.anims.create({ key: 'walk-down-left',  frames: this.anims.generateFrameNumbers('player', { start: 48,  end: 51 }),  frameRate: 8, repeat: -1 });
+          this.anims.create({ key: 'walk-down-right', frames: this.anims.generateFrameNumbers('player', { start: 60,  end: 63 }),  frameRate: 8, repeat: -1 });
+          this.anims.create({ key: 'walk-up-left',    frames: this.anims.generateFrameNumbers('player', { start: 72,  end: 75 }),  frameRate: 8, repeat: -1 });
+          this.anims.create({ key: 'walk-up-right',   frames: this.anims.generateFrameNumbers('player', { start: 84,  end: 87 }),  frameRate: 8, repeat: -1 });
 
-          // Input
+          // Input keys
           this.keys = this.input.keyboard.addKeys('W,A,S,D');
 
-          // Camera follow
+          // Camera follow with vertical offset
           const cam = this.cameras.main;
-          cam.setBounds(0, 0, this.mapW*this.tileW, this.mapH*this.tileH);
-          // Follow player with vertical offset to prevent clipping
-          cam.startFollow(this.player, true, 0.1, 0.1, 0, -this.tileH);
+          cam.setBounds(0, 0, this.mapW * this.tileW, this.mapH * this.tileH);
+          cam.startFollow(this.player, true, 0.1, 0.1, 0, -this.tileH * 2);
 
-          // Initial draw
+          // Initial placement
           this.updatePlayerPosition();
         }
 
         update(time, delta) {
           const dt = delta / 1000;
           const speed = 3;
-          const diagSpeed = speed / Math.SQRT2;
-          let moving = false;
-          let lastDir = this.lastDir || 'down';
-
+          const diag = speed / Math.SQRT2;
+          let moved = false;
+          let dir = this.lastDir || 'down';
           const { W, A, S, D } = this.keys;
 
-          // Diagonals first
+          // Diagonal movement
           if (S.isDown && A.isDown) {
-            this.playerIsoX -= diagSpeed * dt;
-            this.playerIsoY += diagSpeed * dt;
+            this.playerIsoX -= diag * dt;
+            this.playerIsoY += diag * dt;
             this.player.play('walk-down-left', true);
-            lastDir = 'down-left'; moving = true;
+            dir = 'down-left'; moved = true;
           } else if (S.isDown && D.isDown) {
-            this.playerIsoX += diagSpeed * dt;
-            this.playerIsoY += diagSpeed * dt;
+            this.playerIsoX += diag * dt;
+            this.playerIsoY += diag * dt;
             this.player.play('walk-down-right', true);
-            lastDir = 'down-right'; moving = true;
+            dir = 'down-right'; moved = true;
           } else if (W.isDown && A.isDown) {
-            this.playerIsoX -= diagSpeed * dt;
-            this.playerIsoY -= diagSpeed * dt;
+            this.playerIsoX -= diag * dt;
+            this.playerIsoY -= diag * dt;
             this.player.play('walk-up-left', true);
-            lastDir = 'up-left'; moving = true;
+            dir = 'up-left'; moved = true;
           } else if (W.isDown && D.isDown) {
-            this.playerIsoX += diagSpeed * dt;
-            this.playerIsoY -= diagSpeed * dt;
+            this.playerIsoX += diag * dt;
+            this.playerIsoY -= diag * dt;
             this.player.play('walk-up-right', true);
-            lastDir = 'up-right'; moving = true;
+            dir = 'up-right'; moved = true;
           } else if (A.isDown) {
             this.playerIsoX -= speed * dt;
             this.player.play('walk-left', true);
-            lastDir = 'left'; moving = true;
+            dir = 'left'; moved = true;
           } else if (D.isDown) {
             this.playerIsoX += speed * dt;
             this.player.play('walk-right', true);
-            lastDir = 'right'; moving = true;
+            dir = 'right'; moved = true;
           } else if (W.isDown) {
             this.playerIsoY -= speed * dt;
             this.player.play('walk-up', true);
-            lastDir = 'up'; moving = true;
+            dir = 'up'; moved = true;
           } else if (S.isDown) {
             this.playerIsoY += speed * dt;
             this.player.play('walk-down', true);
-            lastDir = 'down'; moving = true;
+            dir = 'down'; moved = true;
           }
 
-          // Idle
-          if (!moving) {
+          // Idle frame
+          if (!moved) {
             this.player.anims.stop();
-            const idleMap = {
-              'down': 0, 'left': 12, 'right': 24, 'up': 36,
+            const idle = {
+              down: 0, left: 12, right: 24, up: 36,
               'down-left': 48, 'down-right': 60,
               'up-left': 72, 'up-right': 84
             };
-            this.player.setFrame(idleMap[lastDir]);
+            this.player.setFrame(idle[dir]);
           }
-          this.lastDir = lastDir;
+          this.lastDir = dir;
 
-          // Clamp
+          // Clamp to map
           this.playerIsoX = Phaser.Math.Clamp(this.playerIsoX, 0, this.mapW - 1);
           this.playerIsoY = Phaser.Math.Clamp(this.playerIsoY, 0, this.mapH - 1);
 
-          // Redraw
+          // Update position
           this.updatePlayerPosition();
         }
 
         updatePlayerPosition() {
           const x = this.playerIsoX, y = this.playerIsoY;
-          const sx = (x - y) * (this.tileW/2) + this.offsetX;
-          const sy = (x + y) * (this.tileH/2) + this.offsetY;
+          const sx = (x - y) * (this.tileW / 2) + this.offsetX;
+          const sy = (x + y) * (this.tileH / 2) + this.offsetY;
           this.player.setPosition(sx, sy);
           this.player.setDepth(sy);
         }
       }
 
-      // === Game Config & Launch ===
+      // === Game Configuration ===
       const config = {
         type: Phaser.AUTO,
         parent: 'game-container',
-        width: window.innerWidth,
-        height: window.innerHeight,
+        scale: {
+          mode: Phaser.Scale.RESIZE,
+          autoCenter: Phaser.Scale.CENTER_BOTH
+        },
         backgroundColor: '#1d212d',
         scene: [BootScene, PreloadScene, MainScene]
       };
