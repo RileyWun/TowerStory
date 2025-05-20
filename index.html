@@ -115,6 +115,10 @@
           const cam = this.cameras.main;
           cam.setBounds(0,0,this.mapW*this.tileW, this.mapH*this.tileH);
           cam.startFollow(this.player, true, 0.1, 0.1, 0, -this.tileH);
+          // Define a dead zone so camera only pans up when player exits top region
+          cam.setDeadzone(this.scale.width, this.scale.height - this.tileH);
+          // Shift deadzone down by one tile height to leave top margin
+          cam.deadzone.y = this.tileH;
           this.updatePlayerPosition();
         }
         update(time,delta) {
