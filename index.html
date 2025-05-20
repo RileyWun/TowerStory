@@ -47,7 +47,7 @@
           const map = this.make.tilemap({ key: 'room' });
           // Use the new tileset key matching the JSON tileset name
           // Add tileset and create layers
-          const tileset = map.addTilesetImage('tileset', 'tileset');
+          const tileset = map.addTilesetImage('tileset', 'tileset', this.tileW, this.tileH, 0, 0);
           // Create floor layer at (0,0)
           this.groundLayer = map.createLayer('Floor', [tileset], 0, 0);
 
