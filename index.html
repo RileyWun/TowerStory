@@ -111,17 +111,10 @@
             });
           });
           this.keys = this.input.keyboard.addKeys('W,A,S,D');
-                    // Camera follow with deadzone margins for UI
+                              // Camera setup: simple follow with upward offset for headroom
           const cam = this.cameras.main;
           cam.setBounds(0, 0, this.mapW * this.tileW, this.mapH * this.tileH);
-          // Reserve space for header and footer
-          const topMargin = this.tileH * 2;
-          const bottomMargin = this.tileH * 2;
-          // Deadzone covers the central area where camera will not move
-          const dzHeight = this.scale.height - topMargin - bottomMargin;
-          cam.startFollow(this.player, true, 0.1, 0.1);
-          cam.setDeadzone(this.scale.width, dzHeight);
-          cam.deadzone.y = topMargin;
+          cam.startFollow(this.player, true, 0.1, 0.1, 0, -this.tileH);
           this.updatePlayerPosition();();
         }
         update(time,delta) {
