@@ -33,8 +33,10 @@
         constructor() { super('Preload'); }
         preload() {
           // Load Tiled map JSON and tileset image
+          // Load Tiled map JSON
           this.load.tilemapTiledJSON('room', 'assets/maps/room.json');
-          this.load.image('tileset', 'assets/tiles/tileset.png');
+          // Load tileset as spritesheet for manual isometric rendering
+          this.load.spritesheet('tileset', 'assets/tiles/tileset.png', { frameWidth: 38, frameHeight: 38 });
           // Load player spritesheet
           this.load.spritesheet('player', 'assets/player/Chibi-character-template_skin0_part2_by_AxulArt.png', { frameWidth: 32, frameHeight: 32 });
         }
@@ -50,21 +52,53 @@
           const tileH = map.tileHeight;
           const tileset = map.addTilesetImage('tileset', 'tileset', tileW, tileH, 0, 0);
 
-          // Floor layer
-          const floorLayer = map.createLayer('Floor', [tileset], 0, 0);
-          floorLayer.setDepth(0);
+          // Manual isometric floor rendering
+          const mapW = map.width;
+          const mapH = map.height;
+          // Center offsets
+          this.offsetX = this.scale.width / 2;
+          this.offsetY = (this.scale.height - (mapW + mapH) * (tileH / 2)) / 2 + (tileH / 2);
+          // Draw floor tiles
+          for (let y = 0; y < mapH; y++) {
+            for (let x = 0; x < mapW; x++) {
+              const tile = map.getTileAt(x, y, false, 'Floor');
+              if (!tile) continue;
+              const gid = tile.index;
+              if (gid <= 0) continue;
+              const local = gid - 1;
+              const sx = (x - y) * (tileW / 2) + this.offsetX;
+              const sy = (x + y) * (tileH / 2) + this.offsetY;
+              this.add.sprite(sx, sy, 'tileset', local).setDepth(sy);
+            }
+          }
 
-          // Collision layer (invisible)
+          // Collision data from layer
+          this.collisionData = [];
+          const collisionLayer = map.getLayer('Collision').data;
+          for (let y = 0; y < mapH; y++) {
+            this.collisionData[y] = [];
+            for (let x = 0; x < mapW; x++) {
+              const tile = collisionLayer[y][x];
+              this.collisionData[y][x] = tile && tile.index > 0;
+            }
+          }
+ (invisible)
           const collisionLayer = map.createLayer('Collision', [tileset], 0, 0);
           collisionLayer.setVisible(false);
           collisionLayer.setCollisionByExclusion([-1]);
 
           // Spawn player at object position
           const spawnPoint = map.findObject('Objects', obj => obj.name === 'PlayerSpawn');
-          this.player = this.physics.add.sprite(spawnPoint.x, spawnPoint.y, 'player').setOrigin(0.5, 1);
-          this.player.body.setSize(16, 16).setOffset(8, 16);
+          // Use manual iso coords centered on spawn
+          this.playerIsoX = spawnPoint.x / tileW;
+          this.playerIsoY = spawnPoint.y / tileH;
+          this.player = this.add.sprite(0, 0, 'player').setOrigin(0.5, 1);
+          // Initial placement
+          const initX = (this.playerIsoX - this.playerIsoY) * (tileW / 2) + this.offsetX;
+          const initY = (this.playerIsoX + this.playerIsoY) * (tileH / 2) + this.offsetY;
+          this.player.setPosition(initX, initY).setDepth(initY);
 
-          // Player animations (8 directions)
+          // Player animations (8 directions) (8 directions)
           [['down',0,3],['left',12,15],['right',24,27],['up',36,39],
            ['down-left',48,51],['down-right',60,63],['up-left',72,75],['up-right',84,87]
           ].forEach(([key,start,end]) => {
