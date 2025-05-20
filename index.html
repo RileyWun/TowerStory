@@ -4,67 +4,11 @@
   <meta charset="UTF-8" />
   <title>TowerStory</title>
   <style>
-    /* Full-screen CSS Grid layout */
-    html, body {
-      display: grid;
-      grid-template-rows: 80px auto 60px;
-      grid-template-columns: 200px auto 200px;
-      grid-template-areas:
-        "header header header"
-        "sidebar-left main sidebar-right"
-        "footer footer footer";
-      /* Center content in rows and columns */
-      align-items: center;
-      justify-items: center;
-    }
-    body {
-      display: grid;
-      grid-template-rows: 80px auto 60px;
-      grid-template-columns: 200px auto 200px;
-      grid-template-areas:
-        "header header header"
-        "sidebar-left main sidebar-right"
-        "footer footer footer";
-    }
-    #header {
-      grid-area: header;
-      /* placeholder for logo/menu */
-    }
-    #sidebar-left {
-      grid-area: sidebar-left;
-      /* placeholder for chat/friends */
-    }
-    #sidebar-right {
-      grid-area: sidebar-right;
-      /* placeholder for location/info */
-    }
-    #footer {
-      grid-area: footer;
-      /* placeholder for links */
-    }
-    #game-container {
-      grid-area: main;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-    }
-    #game-container canvas {
-      max-width: 100%;
-      max-height: 100%;
-    }
-    #game-container canvas {
-      display: block;
-      width: 100%;
-      height: 100%;
-    }
-    #game-container canvas {
-      display: block;
-      width: 100%;
-      height: 100%;
-    }
+    html, body { height:100%; width:100%; margin:0; padding:0; background: url('assets/images/background.png') center/cover no-repeat; }
+    body { display:grid; grid-template-rows:80px auto 60px; grid-template-columns:200px auto 200px; grid-template-areas:"header header header" "sidebar-left main sidebar-right" "footer footer footer"; align-items:center; justify-items:center; }
+    #header{grid-area:header;} #sidebar-left{grid-area:sidebar-left;} #sidebar-right{grid-area:sidebar-right;} #footer{grid-area:footer;}
+    #game-container{grid-area:main; display:flex; align-items:center; justify-content:center; width:100%; height:100%; overflow:hidden;}
+    #game-container canvas{max-width:100%; max-height:100%;}
   </style>
 </head>
 <body>
@@ -74,118 +18,88 @@
   <div id="sidebar-right"></div>
   <div id="footer"></div>
 
-  <!-- Phaser 3 -->
   <script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.min.js"></script>
-
   <script>
     window.addEventListener('load', () => {
       class BootScene extends Phaser.Scene {
-        constructor() { super('Boot'); }
-        preload() {}
-        create() { this.scene.start('Preload'); }
+        constructor(){super('Boot');}
+        preload(){}
+        create(){this.scene.start('Preload');}
       }
+
       class PreloadScene extends Phaser.Scene {
-        constructor() { super('Preload'); }
+        constructor(){super('Preload');}
         preload() {
-          // Load floor tile variants (tile_000.png through tile_009.png)
-          for (let i = 0; i < 10; i++) {
-            const key = `tile${i}`;
-            const filename = `assets/tiles/tile_${String(i).padStart(3, '0')}.png`;
-            this.load.image(key, filename);
-          }
+          // Load Tiled JSON map and tileset image
+          this.load.tilemapTiledJSON('room', 'assets/maps/room.json');
+          this.load.image('tiles', 'assets/tiles/tileset.png');
           // Load player spritesheet
-          this.load.spritesheet('player', 'assets/player/Chibi-character-template_skin0_part2_by_AxulArt.png', { frameWidth: 32, frameHeight: 32 });
+          this.load.spritesheet('player','assets/player/Chibi-character-template_skin0_part2_by_AxulArt.png',{frameWidth:32,frameHeight:32});
         }
-        create() {
-          this.scene.start('Main');
-        }
+        create(){ this.scene.start('Main'); }
       }
 
       class MainScene extends Phaser.Scene {
-        constructor() { super('Main'); }
-        create() {
-          this.tileW = 38; this.tileH = 38;
-          this.mapW = 20; this.mapH = 20;
-          // Compute map diamond height and center in container
-          const mapHeightPx = (this.mapW + this.mapH) * (this.tileH/2);
-          this.offsetX = this.scale.width / 2;
-          this.offsetY = (this.scale.height - mapHeightPx) / 2 + (this.tileH/2);
-          // Build iso grid
-          this.tilesGroup = this.add.group();
-          for (let x = 0; x < this.mapW; x++) {
-            for (let y = 0; y < this.mapH; y++) {
-              const sx = (x - y) * (this.tileW / 2) + this.offsetX;
-              const sy = (x + y) * (this.tileH / 2) + this.offsetY;
-              // Pick a random floor tile variant
-              const variant = Phaser.Math.Between(0, 9);
-              const tileKey = `tile${variant}`;
-              const tile = this.add.image(sx, sy, tileKey);
-              tile.setDepth(sy);
-              this.tilesGroup.add(tile);
-            }
-          }
-          // Player setup
-          this.playerIsoX = this.mapW/2;
-          this.playerIsoY = this.mapH/2;
-          this.player = this.add.sprite(0,0,'player').setOrigin(0.5,1);
-          // Animations (8 directions)
-          [['down',0,3],['left',12,15],['right',24,27],['up',36,39],
-           ['down-left',48,51],['down-right',60,63],['up-left',72,75],['up-right',84,87]
-          ].forEach(([key,start,end]) => {
-            this.anims.create({
-              key: `walk-${key}`,
-              frames: this.anims.generateFrameNumbers('player',{start,end}),
-              frameRate:8, repeat:-1
-            });
+        constructor(){super('Main');}
+        create(){
+          // Create Tilemap
+          const map = this.make.tilemap({ key: 'room' });
+          const tileset = map.addTilesetImage('tileset', 'tiles');
+          this.groundLayer = map.createLayer('Floor', tileset);
+          this.groundLayer.setDepth(0);
+
+          // Collision layer (Tiled layer named 'Collision')
+          this.collisionLayer = map.createLayer('Collision', tileset);
+          this.collisionLayer.setDepth(100);
+          this.collisionLayer.setVisible(false);
+          this.collisionLayer.setCollisionByExclusion([-1]);
+
+          // Set up player at spawn point from object layer
+          const spawn = map.findObject('Objects', obj => obj.name === 'PlayerSpawn');
+          this.player = this.add.sprite(spawn.x, spawn.y, 'player').setOrigin(0.5,1);
+          this.player.setDepth(this.player.y);
+
+          // Animations
+          [['down',0,3],['left',12,15],['right',24,27],['up',36,39],['down-left',48,51],['down-right',60,63],['up-left',72,75],['up-right',84,87]].forEach(([k,s,e])=>{
+            this.anims.create({key:`walk-${k}`,frames:this.anims.generateFrameNumbers('player',{start:s,end:e}),frameRate:8,repeat:-1});
           });
+
+          // Physics and collision
+          this.physics.world.convertTilemapLayer(this.collisionLayer);
+          this.physics.add.existing(this.player);
+          this.player.body.setSize(16,16).setOffset(8,16);
+          this.physics.add.collider(this.player, this.collisionLayer);
+
+          // Input
           this.keys = this.input.keyboard.addKeys('W,A,S,D');
-                              // Camera setup: simple follow with upward offset for headroom
+
+          // Camera
           const cam = this.cameras.main;
-          cam.setBounds(0, 0, this.mapW * this.tileW, this.mapH * this.tileH);
-          
-          // Centered follow: keep player in view center irrespective of UI overlays
-          cam.startFollow(this.player, true, 0.1, 0.1);
-          this.updatePlayerPosition();
+          cam.setBounds(0,0,map.widthInPixels,map.heightInPixels);
+          cam.startFollow(this.player,true,0.1,0.1);
+          cam.setZoom(1);
         }
-        update(time,delta) {
-          const dt = delta/1000, speed=3, diag=speed/Math.SQRT2;
-          let moved=false, dir=this.lastDir||'down';
-          const {W,A,S,D} = this.keys;
-          // Diagonals
-          if (S.isDown && A.isDown) { this.playerIsoX-=diag*dt; this.playerIsoY+=diag*dt; this.player.play('walk-down-left',true); dir='down-left'; moved=true;} 
-          else if (S.isDown && D.isDown) { this.playerIsoX+=diag*dt; this.playerIsoY+=diag*dt; this.player.play('walk-down-right',true); dir='down-right'; moved=true;} 
-          else if (W.isDown && A.isDown) { this.playerIsoX-=diag*dt; this.playerIsoY-=diag*dt; this.player.play('walk-up-left',true); dir='up-left'; moved=true;} 
-          else if (W.isDown && D.isDown) { this.playerIsoX+=diag*dt; this.playerIsoY-=diag*dt; this.player.play('walk-up-right',true); dir='up-right'; moved=true;} 
-          // Cardinals
-          else if (A.isDown) { this.playerIsoX-=speed*dt; this.player.play('walk-left',true); dir='left'; moved=true;} 
-          else if (D.isDown) { this.playerIsoX+=speed*dt; this.player.play('walk-right',true); dir='right'; moved=true;} 
-          else if (W.isDown) { this.playerIsoY-=speed*dt; this.player.play('walk-up',true); dir='up'; moved=true;} 
-          else if (S.isDown) { this.playerIsoY+=speed*dt; this.player.play('walk-down',true); dir='down'; moved=true;} 
-          // Idle
-          if (!moved) { this.player.anims.stop(); const idleMap={down:0,left:12,right:24,up:36,'down-left':48,'down-right':60,'up-left':72,'up-right':84}; this.player.setFrame(idleMap[dir]); }
-          this.lastDir=dir;
-          // Clamp
-          this.playerIsoX=Phaser.Math.Clamp(this.playerIsoX,0,this.mapW-1);
-          this.playerIsoY=Phaser.Math.Clamp(this.playerIsoY,0,this.mapH-1);
-          this.updatePlayerPosition();
-        }
-        updatePlayerPosition() {
-          const x=this.playerIsoX, y=this.playerIsoY;
-          const sx=(x-y)*(this.tileW/2)+this.offsetX;
-          const sy=(x+y)*(this.tileH/2)+this.offsetY;
-          this.player.setPosition(sx,sy).setDepth(sy);
+
+        update(time,delta){
+          const speed = 100;
+          const prev = {x:this.player.x,y:this.player.y};
+          let dir='down',moving=false;
+          const {W,A,S,D}=this.keys;
+          if(W.isDown){this.player.y-=speed*delta/1000; this.player.play('walk-up',true);dir='up';moving=true;}
+          if(S.isDown){this.player.y+=speed*delta/1000; this.player.play('walk-down',true);dir='down';moving=true;}
+          if(A.isDown){this.player.x-=speed*delta/1000; this.player.play('walk-left',true);dir='left';moving=true;}
+          if(D.isDown){this.player.x+=speed*delta/1000; this.player.play('walk-right',true);dir='right';moving=true;}
+          if(!moving){ this.player.anims.stop(); const idleFrame={'down':0,'left':12,'right':24,'up':36}[dir]; this.player.setFrame(idleFrame); }
+          this.player.setDepth(this.player.y);
         }
       }
+
       const config = {
         type: Phaser.AUTO,
         parent: 'game-container',
-        transparent: true,
-        scale: {
-          mode: Phaser.Scale.FIT,
-          autoCenter: Phaser.Scale.CENTER_BOTH
-        },
-        backgroundColor: '#1d212d',
-        scene: [BootScene, PreloadScene, MainScene]
+        scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
+        physics: { default: 'arcade', arcade: { debug: false } },
+        scene: [BootScene,PreloadScene,MainScene]
       };
       new Phaser.Game(config);
     });
