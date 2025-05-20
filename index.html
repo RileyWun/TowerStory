@@ -57,8 +57,14 @@
           this.tileW = 38; this.tileH = 38;
           this.mapW = 20; this.mapH = 20;
 
-          // Offsets based on dynamic scale: center map with headroom
+          // Offsets based on dynamic scale: center map vertically in viewport
           this.offsetX = this.scale.width / 2;
+          // Compute isometric diamond height
+          const mapHeightPx = (this.mapW + this.mapH) * (this.tileH / 2);
+          // Center map vertically in viewport
+          this.offsetY = (this.scale.height - mapHeightPx) / 2;
+          // Center map vertically, with half-tile headroom
+          this.offsetY = (this.scale.height - mapHeightPx) / 2 + (this.tileH / 2);
           this.offsetY = this.scale.height / 2 + this.tileH;
           // Position map so its bottom edge aligns near bottom of viewport
           this.offsetY = this.scale.height - (this.mapH * this.tileH) / 2;
