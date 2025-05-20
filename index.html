@@ -152,14 +152,15 @@
           this.player.setPosition(sx,sy).setDepth(sy);
         }
       }
-      const config={
-        type:Phaser.AUTO,
-        parent:'game-container',
-        width:800,
-        height:600,
-        scale:{mode:Phaser.Scale.FIT, autoCenter:Phaser.Scale.CENTER_BOTH},
-        backgroundColor:'#1d212d',
-        scene:[BootScene,PreloadScene,MainScene]
+      const config = {
+        type: Phaser.AUTO,
+        parent: 'game-container',
+        scale: {
+          mode: Phaser.Scale.RESIZE,
+          autoCenter: Phaser.Scale.CENTER_BOTH
+        },
+        backgroundColor: '#1d212d',
+        scene: [BootScene, PreloadScene, MainScene]
       };
       new Phaser.Game(config);
     });
