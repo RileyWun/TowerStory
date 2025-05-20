@@ -6,12 +6,16 @@
   <style>
     /* Full-screen CSS Grid layout */
     html, body {
-      height: 100%;
-      width: 100%;
-      margin: 0;
-      padding: 0;
-      /* Background image behind UI and game */
-      background: url('assets/images/background.png') center center / cover no-repeat;
+      display: grid;
+      grid-template-rows: 80px auto 60px;
+      grid-template-columns: 200px auto 200px;
+      grid-template-areas:
+        "header header header"
+        "sidebar-left main sidebar-right"
+        "footer footer footer";
+      /* Center content in rows and columns */
+      align-items: center;
+      justify-items: center;
     }
     body {
       display: grid;
@@ -40,10 +44,16 @@
     }
     #game-container {
       grid-area: main;
-      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       width: 100%;
       height: 100%;
       overflow: hidden;
+    }
+    #game-container canvas {
+      max-width: 100%;
+      max-height: 100%;
     }
     #game-container canvas {
       display: block;
@@ -171,7 +181,7 @@
         parent: 'game-container',
         transparent: true,
         scale: {
-          mode: Phaser.Scale.RESIZE,
+          mode: Phaser.Scale.FIT,
           autoCenter: Phaser.Scale.CENTER_BOTH
         },
         backgroundColor: '#1d212d',
