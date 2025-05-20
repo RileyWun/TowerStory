@@ -31,12 +31,14 @@
       class PreloadScene extends Phaser.Scene {
         constructor() { super('Preload'); }
         preload() {
-          // Load map, tiles, player, and object/NPC sprites
           this.load.tilemapTiledJSON('room', 'assets/maps/room.json');
           this.load.spritesheet('tileset', 'assets/tiles/tileset.png', { frameWidth:38, frameHeight:38 });
           this.load.spritesheet('player', 'assets/player/Chibi-character-template_skin0_part2_by_AxulArt.png', { frameWidth:32, frameHeight:32 });
           this.load.image('chest', 'assets/objects/chest.png');
-          this.load.image('npc', 'assets/objects/npc.png');
+          this.load.image('npc',   'assets/objects/npc.png');
+          this.load.image('potion','assets/icons/potion.png');
+          this.load.image('sword', 'assets/icons/sword.png');
+          this.load.image('coin',  'assets/icons/coin.png');
         }
         create() { this.scene.start('Main'); }
       }
@@ -44,83 +46,144 @@
       class MainScene extends Phaser.Scene {
         constructor() { super('Main'); }
         create() {
+          // Map and rendering
           const map = this.make.tilemap({ key: 'room' });
-          this.tileW = map.tileWidth; this.tileH = map.tileHeight;
-          this.mapW = map.width; this.mapH = map.height;
+          this.tileW = map.tileWidth;
+          this.tileH = map.tileHeight;
+          this.mapW  = map.width;
+          this.mapH  = map.height;
           map.addTilesetImage('tileset','tileset',this.tileW,this.tileH);
-
-          // Render floor tiles
           this.offsetX = this.scale.width/2;
-          this.offsetY = (this.scale.height - (this.mapW + this.mapH)*this.tileH/2)/2 + this.tileH/2;
+          this.offsetY = (this.scale.height - (this.mapW+this.mapH)*this.tileH/2)/2 + this.tileH/2;
           this.floorData = map.getLayer('Floor').data.map(r=>r.map(t=>!!t&&t.index>0));
           this.collisionData = map.getLayer('Collision').data.map(r=>r.map(t=>!!t&&t.index>0));
           this.floorGroup = this.add.group();
           map.getLayer('Floor').data.forEach((row,y)=>{
             row.forEach((t,x)=>{
               if(t.index>0){
-                const frame=t.index-1;
-                const sx=(x-y)*this.tileW/2+this.offsetX;
-                const sy=(x+y)*this.tileH/2+this.offsetY;
+                const frame = t.index-1;
+                const sx = (x-y)*this.tileW/2+this.offsetX;
+                const sy = (x+y)*this.tileH/2+this.offsetY;
                 this.floorGroup.add(this.add.sprite(sx,sy,'tileset',frame).setDepth(sy));
               }
             });
           });
 
-          // Interactive objects and NPC group
-          this.objectsGroup = this.add.group();
-          this.npcGroup = this.add.group();
+          // Spawn interactive objects
           const objectLayer = map.getObjectLayer('Objects');
-          objectLayer.objects.forEach(obj=>{
-            const isoX = obj.x/this.tileW;
-            const isoY = obj.y/this.tileH;
-            const sx=(isoX-isoY)*this.tileW/2+this.offsetX;
-            const sy=(isoX+isoY)*this.tileH/2+this.offsetY;
-            if(obj.type==='Chest'){
-              const chest = this.add.image(sx,sy,'chest').setOrigin(0.5,1).setDepth(sy);
-              chest.setInteractive();
-              chest.on('pointerdown',()=> console.log('Chest opened!'));
-              this.objectsGroup.add(chest);
-            } else if(obj.type==='NPC'){
-              const npc = this.add.sprite(sx,sy,'npc').setOrigin(0.5,1).setDepth(sy);
-              this.npcGroup.add(npc);
+          const spawnObj = map.findObject('Objects',o=>o.name==='PlayerSpawn');
+          objectLayer.objects.push({ name:'Chest1', type:'Chest', x:spawnObj.x+this.tileW*2, y:spawnObj.y, visible:true });
+          objectLayer.objects.push({ name:'NPC1',   type:'NPC',   x:spawnObj.x-this.tileW*2, y:spawnObj.y, visible:true });
+
+          this.chests = [];
+          objectLayer.objects.forEach(o=>{
+            const ix=o.x/this.tileW, iy=o.y/this.tileH;
+            const sx=(ix-iy)*this.tileW/2+this.offsetX;
+            const sy=(ix+iy)*this.tileH/2+this.offsetY;
+            if(o.type==='Chest'){
+              const chest = this.add.image(sx,sy,'chest').setOrigin(0.5,1).setDepth(sy).setInteractive();
+              chest.inventory = [{iconKey:'coin'}, {iconKey:'potion'}];
+              chest.on('pointerdown',()=>{
+                this.scene.pause();
+                this.scene.launch('InventoryScene',{ playerInv:this.player.inventory, chestInv:chest.inventory });
+              });
+              this.chests.push(chest);
+            }
+            if(o.type==='NPC'){
+              this.add.image(sx,sy,'npc').setOrigin(0.5,1).setDepth(sy);
             }
           });
 
-          // Player spawn and animations
-          const spawn=map.findObject('Objects',o=>o.name==='PlayerSpawn');
-          this.playerIsoX=spawn.x/this.tileW; this.playerIsoY=spawn.y/this.tileH;
-          this.player=this.add.sprite(0,0,'player').setOrigin(0.5,1);
+          // Player
+          this.playerInv = [{iconKey:'potion'},{iconKey:'sword'}];
+          this.player = this.add.sprite(0,0,'player').setOrigin(0.5,1);
+          this.player.inventory = this.playerInv;
           this.createPlayerAnims();
+          this.playerIsoX = spawnObj.x/this.tileW;
+          this.playerIsoY = spawnObj.y/this.tileH;
           this.updatePlayerPosition();
-
-          // Input and camera
-          this.keys=this.input.keyboard.addKeys('W,A,S,D');
+          this.keys = this.input.keyboard.addKeys('W,A,S,D');
           this.cameras.main.setBounds(0,0,map.widthInPixels,map.heightInPixels);
           this.cameras.main.startFollow(this.player,true,0.1,0.1);
+
+          // Listen for inventory close
+          this.events.on('inventoryClosed', data=>{
+            this.player.inventory = data.playerInv;
+            this.chests[0].inventory = data.chestInv;
+            this.scene.resume();
+          });
         }
         update(time,delta){
-          const dt=delta/1000,spd=3;let moved=false,dir=this.lastDir||'down';
-          let nx=this.playerIsoX,ny=this.playerIsoY;
+          const dt=delta/1000,spd=3;let moved=false;
+          let dir=this.lastDir||'down'; let nx=this.playerIsoX,ny=this.playerIsoY;
           const {W,A,S,D}=this.keys;
-          if(W.isDown){ny-=spd*dt;dir='up';moved=true;this.player.play('walk-up',true);}
-          else if(S.isDown){ny+=spd*dt;dir='down';moved=true;this.player.play('walk-down',true);}
-          if(A.isDown){nx-=spd*dt;dir='left';moved=true;this.player.play('walk-left',true);}
-          else if(D.isDown){nx+=spd*dt;dir='right';moved=true;this.player.play('walk-right',true);}
-          // collision
+          if(W.isDown){ny-=spd*dt;dir='up';moved=true;this.player.play('walk-up',true);} else if(S.isDown){ny+=spd*dt;dir='down';moved=true;this.player.play('walk-down',true);}
+          if(A.isDown){nx-=spd*dt;dir='left';moved=true;this.player.play('walk-left',true);} else if(D.isDown){nx+=spd*dt;dir='right';moved=true;this.player.play('walk-right',true);}
           if(nx>=0&&nx<this.mapW&&ny>=0&&ny<this.mapH){const tx=Math.floor(nx),ty=Math.floor(ny);
             if(this.floorData[ty][tx]&&!this.collisionData[ty][tx]){this.playerIsoX=nx;this.playerIsoY=ny;}}
           if(!moved){this.player.anims.stop();this.player.setFrame({down:0,left:12,right:24,up:36}[dir]);}
           this.lastDir=dir;this.updatePlayerPosition();
         }
-        createPlayerAnims(){[['down',0,3],['left',12,15],['right',24,27],['up',36,39],
-          ['down-left',48,51],['down-right',60,63],['up-left',72,75],['up-right',84,87]
-        ].forEach(([k,s,e])=>this.anims.create({key:`walk-${k}`,frames:this.anims.generateFrameNumbers('player',{start:s,end:e}),frameRate:8,repeat:-1}));}
+        createPlayerAnims(){[['down',0,3],['left',12,15],['right',24,27],['up',36,39],['down-left',48,51],['down-right',60,63],['up-left',72,75],['up-right',84,87]].forEach(([k,s,e])=>{
+          this.anims.create({key:`walk-${k}`,frames:this.anims.generateFrameNumbers('player',{start:s,end:e}),frameRate:8,repeat:-1});
+        });}
         updatePlayerPosition(){const x=this.playerIsoX,y=this.playerIsoY;
           const sx=(x-y)*this.tileW/2+this.offsetX,sy=(x+y)*this.tileH/2+this.offsetY;
           this.player.setPosition(sx,sy).setDepth(sy);
         }
       }
-      const config={type:Phaser.AUTO,parent:'game-container',scale:{mode:Phaser.Scale.FIT,autoCenter:Phaser.Scale.CENTER_BOTH},physics:{default:'arcade'},scene:[BootScene,PreloadScene,MainScene]};
+
+      class InventoryScene extends Phaser.Scene {
+        constructor() { super('InventoryScene'); }
+        init(data) { this.playerInv = data.playerInv; this.chestInv = data.chestInv; }
+        create() {
+          this.graphics = this.add.graphics();
+          this.iconsGroup = this.add.group();
+          this.drawInventory();
+          this.input.keyboard.on('keydown-ESC',()=>this.close());
+        }
+        drawInventory() {
+          this.iconsGroup.clear(true, true);
+          // Player inventory (left)
+          this.playerInv.forEach((item,i)=>{
+            const x = 100 + (i%4)*50, y = 100 + Math.floor(i/4)*50;
+            const icon = this.add.image(x,y,item.iconKey).setInteractive();
+            icon.setData('source','player').setData('index',i);
+            icon.on('pointerdown',()=>this.transfer(item));
+            this.iconsGroup.add(icon);
+          });
+          // Chest inventory (right)
+          this.chestInv.forEach((item,i)=>{
+            const x = 400 + (i%4)*50, y = 100 + Math.floor(i/4)*50;
+            const icon = this.add.image(x,y,item.iconKey).setInteractive();
+            icon.setData('source','chest').setData('index',i);
+            icon.on('pointerdown',()=>this.transfer(item));
+            this.iconsGroup.add(icon);
+          });
+        }
+        transfer(item) {
+          if(item.iconKey && this.playerInv.includes(item)) {
+            this.playerInv.splice(this.playerInv.indexOf(item),1);
+            this.chestInv.push(item);
+          } else {
+            this.chestInv.splice(this.chestInv.indexOf(item),1);
+            this.playerInv.push(item);
+          }
+          this.drawInventory();
+        }
+        close() {
+          this.scene.get('Main').events.emit('inventoryClosed',{playerInv:this.playerInv, chestInv:this.chestInv});
+          this.scene.stop();
+        }
+      }
+
+      const config = {
+        type: Phaser.AUTO,
+        parent: 'game-container',
+        scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
+        physics: { default: 'arcade' },
+        scene: [BootScene, PreloadScene, MainScene, InventoryScene]
+      };
       new Phaser.Game(config);
     });
   </script>
