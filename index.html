@@ -42,82 +42,75 @@
         constructor() { super('Main'); }
         create() {
           const map = this.make.tilemap({ key: 'room' });
+          // Store tile dimensions
           this.tileW = map.tileWidth;
           this.tileH = map.tileHeight;
-          const tileset = map.addTilesetImage('tileset', 'tileset', this.tileW, this.tileH, 0, 0);
+          // Initialize map dimensions
+          this.mapW = map.width;
+          this.mapH = map.height;
+          // Add tileset
+          map.addTilesetImage('tileset', 'tileset', this.tileW, this.tileH, 0, 0);
 
-          // Manual iso floor
-          const mapW = map.width;
-          const mapH = map.height;
-          this.mapW = mapW;
-          this.mapH = mapH; // store for update()
-          const mapH = map.height;
+          // Manual isometric floor rendering
           this.offsetX = this.scale.width / 2;
-          this.offsetY = (this.scale.height - (mapW + mapH) * (this.tileH/2)) / 2 + (this.tileH/2);
+          this.offsetY = (this.scale.height - (this.mapW + this.mapH) * (this.tileH / 2)) / 2 + (this.tileH / 2);
+          this.floorData = map.getLayer('Floor').data.map(row => row.map(t => !!t && t.index > 0));
+          this.collisionData = map.getLayer('Collision').data.map(row => row.map(t => !!t && t.index > 0));
           this.floorSprites = this.add.group();
-          for (let y = 0; y < mapH; y++) {
-            for (let x = 0; x < mapW; x++) {
-              const tile = map.getTileAt(x, y, false, 'Floor');
-              if (!tile || tile.index <= 0) continue;
-              const frame = tile.index - 1;
-              const sx = (x - y) * (this.tileW/2) + this.offsetX;
-              const sy = (x + y) * (this.tileH/2) + this.offsetY;
-              const spr = this.add.sprite(sx, sy, 'tileset', frame).setDepth(sy);
-              this.floorSprites.add(spr);
+          for (let y = 0; y < this.mapH; y++) {
+            for (let x = 0; x < this.mapW; x++) {
+              if (this.floorData[y][x]) {
+                const frame = map.getLayer('Floor').data[y][x].index - 1;
+                const sx = (x - y) * (this.tileW / 2) + this.offsetX;
+                const sy = (x + y) * (this.tileH / 2) + this.offsetY;
+                this.floorSprites.add(this.add.sprite(sx, sy, 'tileset', frame).setDepth(sy));
+              }
             }
           }
 
-          // Floor and collision maps
-          const floorLayerData = map.getLayer('Floor').data;
-          this.floorData = floorLayerData.map(row => row.map(t => (t && t.index > 0)));
-          const collLayer = map.getLayer('Collision').data;
-          this.collisionData = collLayer.map(row => row.map(t => (t && t.index > 0)));
-(row => row.map(t => (t && t.index > 0)));
-
-          // Player spawn
+          // Spawn player at object position
           const spawn = map.findObject('Objects', o => o.name === 'PlayerSpawn');
           this.playerIsoX = spawn.x / this.tileW;
           this.playerIsoY = spawn.y / this.tileH;
-          this.player = this.add.sprite(0,0,'player').setOrigin(0.5,1);
+          this.player = this.add.sprite(0, 0, 'player').setOrigin(0.5, 1);
           this.updatePlayerPosition();
 
           // Animations
           [['down',0,3],['left',12,15],['right',24,27],['up',36,39],['down-left',48,51],['down-right',60,63],['up-left',72,75],['up-right',84,87]].forEach(([k,s,e])=>{
-            this.anims.create({ key:`walk-${k}`, frames:this.anims.generateFrameNumbers('player',{start:s,end:e}), frameRate:8, repeat:-1 });
+            this.anims.create({ key: `walk-${k}`, frames: this.anims.generateFrameNumbers('player',{start:s,end:e}), frameRate:8, repeat:-1 });
           });
 
           this.keys = this.input.keyboard.addKeys('W,A,S,D');
           const cam = this.cameras.main;
-          cam.setBounds(0,0,map.widthInPixels,map.heightInPixels);
-          cam.startFollow(this.player,true,0.1,0.1);
+          cam.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
+          cam.startFollow(this.player, true, 0.1, 0.1);
         }
 
         update(time, delta) {
-          const dt = delta/1000;
+          const dt = delta / 1000;
           const speed = 3;
           let moved = false;
           let dir = this.lastDir || 'down';
           let nx = this.playerIsoX;
           let ny = this.playerIsoY;
-          const { W,A,S,D } = this.keys;
-          // Compute desired iso move
-          if (W.isDown) { ny -= speed*dt; dir='up'; moved=true; this.player.play('walk-up',true); }
-          else if (S.isDown) { ny += speed*dt; dir='down'; moved=true; this.player.play('walk-down',true); }
-          if (A.isDown) { nx -= speed*dt; dir='left'; moved=true; this.player.play('walk-left',true); }
-          else if (D.isDown) { nx += speed*dt; dir='right'; moved=true; this.player.play('walk-right',true); }
+          const { W, A, S, D } = this.keys;
+          if (W.isDown) { ny -= speed * dt; dir = 'up'; moved = true; this.player.play('walk-up', true); }
+          else if (S.isDown) { ny += speed * dt; dir = 'down'; moved = true; this.player.play('walk-down', true); }
+          if (A.isDown) { nx -= speed * dt; dir = 'left'; moved = true; this.player.play('walk-left', true); }
+          else if (D.isDown) { nx += speed * dt; dir = 'right'; moved = true; this.player.play('walk-right', true); }
 
-          // Collision test: only move if within map bounds, on floor, and no collision
+          // Collision and boundary test
           if (nx >= 0 && nx < this.mapW && ny >= 0 && ny < this.mapH) {
-            const tileX = Math.floor(nx);
-            const tileY = Math.floor(ny);
-            if (this.floorData[tileY][tileX] && !this.collisionData[tileY][tileX]) {
+            const tx = Math.floor(nx), ty = Math.floor(ny);
+            if (this.floorData[ty][tx] && !this.collisionData[ty][tx]) {
               this.playerIsoX = nx;
               this.playerIsoY = ny;
             }
           }
-if (!moved) {
+
+          if (!moved) {
             this.player.anims.stop();
-            const idle = {down:0,left:12,right:24,up:36}[dir];
+            const idle = { down:0, left:12, right:24, up:36 }[dir];
             this.player.setFrame(idle);
           }
           this.lastDir = dir;
@@ -125,11 +118,10 @@ if (!moved) {
         }
 
         updatePlayerPosition() {
-          const x = this.playerIsoX;
-          const y = this.playerIsoY;
-          const sx = (x - y)*(this.tileW/2) + this.offsetX;
-          const sy = (x + y)*(this.tileH/2) + this.offsetY;
-          this.player.setPosition(sx,sy).setDepth(sy);
+          const x = this.playerIsoX, y = this.playerIsoY;
+          const sx = (x - y) * (this.tileW / 2) + this.offsetX;
+          const sy = (x + y) * (this.tileH / 2) + this.offsetY;
+          this.player.setPosition(sx, sy).setDepth(sy);
         }
       }
 
