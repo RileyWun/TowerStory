@@ -86,12 +86,12 @@
           // Load player spritesheet
           this.load.spritesheet('player', 'assets/player/Chibi-character-template_skin0_part2_by_AxulArt.png', { frameWidth: 32, frameHeight: 32 });
         }
-        create() { this.scene.start('Main'); }
-      });
+        create() {
+          this.scene.start('Main');
         }
-        create() { this.scene.start('Main'); }
       }
-      class MainScene extends Phaser.Scene {
+
+      class MainScene extends Phaser.Scene extends Phaser.Scene {
         constructor() { super('Main'); }
         create() {
           this.tileW = 38; this.tileH = 38;
