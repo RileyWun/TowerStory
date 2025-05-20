@@ -46,12 +46,16 @@
           // Create Tilemap
           const map = this.make.tilemap({ key: 'room' });
           // Use the new tileset key matching the JSON tileset name
+          // Add tileset and create layers
           const tileset = map.addTilesetImage('tileset', 'tileset');
-          this.groundLayer = map.createLayer('Floor', tileset);
+          // Create floor layer at (0,0)
+          this.groundLayer = map.createLayer('Floor', [tileset], 0, 0);
+
           this.groundLayer.setDepth(0);
 
           // Collision layer (Tiled layer named 'Collision')
-          this.collisionLayer = map.createLayer('Collision', tileset);
+          // Create collision layer (invisible, used for collisions)
+          this.collisionLayer = map.createLayer('Collision', [tileset], 0, 0);
           this.collisionLayer.setDepth(100);
           this.collisionLayer.setVisible(false);
           this.collisionLayer.setCollisionByExclusion([-1]);
