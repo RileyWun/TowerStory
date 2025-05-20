@@ -10,7 +10,8 @@
       width: 100%;
       margin: 0;
       padding: 0;
-      background-color: #1d212d;
+      /* Background image behind UI and game */
+      background: url('assets/images/background.png') center center / cover no-repeat;
     }
     body {
       display: grid;
@@ -155,6 +156,7 @@
       const config = {
         type: Phaser.AUTO,
         parent: 'game-container',
+        transparent: true,
         scale: {
           mode: Phaser.Scale.RESIZE,
           autoCenter: Phaser.Scale.CENTER_BOTH
