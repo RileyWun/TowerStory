@@ -38,12 +38,16 @@
       /* placeholder for links */
     }
     #game-container {
-      /* Span entire grid so game can render behind UI panels */
-      grid-row: 1 / 4;
-      grid-column: 1 / 4;
+      grid-area: main;
       position: relative;
+      width: 100%;
+      height: 100%;
       overflow: hidden;
-      z-index: 0;
+    }
+    #game-container canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
     }
     #game-container canvas {
       display: block;
