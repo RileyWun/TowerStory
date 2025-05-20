@@ -114,7 +114,16 @@
                               // Camera setup: simple follow with upward offset for headroom
           const cam = this.cameras.main;
           cam.setBounds(0, 0, this.mapW * this.tileW, this.mapH * this.tileH);
-          cam.startFollow(this.player, true, 0.1, 0.1, 0, -this.tileH);
+          // Follow player
+          cam.startFollow(this.player, true, 0.1, 0.1);
+          // Reserve space for UI header and footer
+          const headerHeight = 80;
+          const footerHeight = 60;
+          // Deadzone central area: camera will move when player exits this band
+          const deadzoneHeight = this.scale.height - headerHeight - footerHeight;
+          cam.setDeadzone(this.scale.width, deadzoneHeight);
+          // Position the deadzone under the header
+          cam.deadzone.y = headerHeight;
           this.updatePlayerPosition();
         }
         update(time,delta) {
