@@ -117,7 +117,6 @@
           // Follow player with vertical offset for top UI margin
           cam.startFollow(this.player, true, 0.1, 0.1, 0, this.tileH * 2);
           // Remove deadzone logic to simplify camera movement
-          cam.deadzone.y = headerHeight;
           this.updatePlayerPosition();
         }
         update(time,delta) {
