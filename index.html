@@ -49,6 +49,9 @@
           // Manual iso floor
           const mapW = map.width;
           const mapH = map.height;
+          this.mapW = mapW;
+          this.mapH = mapH; // store for update()
+          const mapH = map.height;
           this.offsetX = this.scale.width / 2;
           this.offsetY = (this.scale.height - (mapW + mapH) * (this.tileH/2)) / 2 + (this.tileH/2);
           this.floorSprites = this.add.group();
@@ -103,15 +106,16 @@
           if (A.isDown) { nx -= speed*dt; dir='left'; moved=true; this.player.play('walk-left',true); }
           else if (D.isDown) { nx += speed*dt; dir='right'; moved=true; this.player.play('walk-right',true); }
 
-          // Collision test: only move if on floor and not hitting collision
-          const tileX = Phaser.Math.Clamp(Math.floor(nx), 0, this.floorData[0].length - 1);
-          const tileY = Phaser.Math.Clamp(Math.floor(ny), 0, this.floorData.length - 1);
-          if (this.floorData[tileY][tileX] && !this.collisionData[tileY][tileX]) {
-            this.playerIsoX = nx;
-            this.playerIsoY = ny;
+          // Collision test: only move if within map bounds, on floor, and no collision
+          if (nx >= 0 && nx < this.mapW && ny >= 0 && ny < this.mapH) {
+            const tileX = Math.floor(nx);
+            const tileY = Math.floor(ny);
+            if (this.floorData[tileY][tileX] && !this.collisionData[tileY][tileX]) {
+              this.playerIsoX = nx;
+              this.playerIsoY = ny;
+            }
           }
-
-          if (!moved) {
+if (!moved) {
             this.player.anims.stop();
             const idle = {down:0,left:12,right:24,up:36}[dir];
             this.player.setFrame(idle);
