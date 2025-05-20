@@ -114,9 +114,9 @@
                               // Camera setup: simple follow with upward offset for headroom
           const cam = this.cameras.main;
           cam.setBounds(0, 0, this.mapW * this.tileW, this.mapH * this.tileH);
-          // Follow player with vertical offset for top UI margin
-          cam.startFollow(this.player, true, 0.1, 0.1, 0, this.tileH * 2);
-          // Remove deadzone logic to simplify camera movement
+          // Follow player with vertical offset to keep them below the top UI bar
+          const headerHeight = 80; // height of the header grid area
+          cam.startFollow(this.player, true, 0.1, 0.1, 0, -headerHeight);
           this.updatePlayerPosition();
         }
         update(time,delta) {
