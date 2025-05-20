@@ -132,15 +132,7 @@
                               // Camera setup: simple follow with upward offset for headroom
           const cam = this.cameras.main;
           cam.setBounds(0, 0, this.mapW * this.tileW, this.mapH * this.tileH);
-          // Compute map pixel dimensions for scaling
-          const mapHeightPx = (this.mapW + this.mapH) * (this.tileH / 2);
-          const mapWidthPx  = (this.mapW + this.mapH) * (this.tileW / 2);
-          // Determine zoom to fit map between UI bars
-          const zoomY = this.scale.height / mapHeightPx;
-          const zoomX = this.scale.width / mapWidthPx;
-          const zoom  = Math.min(zoomX, zoomY);
-          cam.setZoom(zoom);
-(0, 0, this.mapW * this.tileW, this.mapH * this.tileH);
+          
           // Centered follow: keep player in view center irrespective of UI overlays
           cam.startFollow(this.player, true, 0.1, 0.1);
           this.updatePlayerPosition();
