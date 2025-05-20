@@ -111,16 +111,18 @@
             });
           });
           this.keys = this.input.keyboard.addKeys('W,A,S,D');
-          // Camera in FIT mode
+                    // Camera follow with deadzone margins for UI
           const cam = this.cameras.main;
-          cam.setBounds(0,0,this.mapW*this.tileW, this.mapH*this.tileH);
-          // Smooth follow with a larger vertical offset to keep character fully visible at top
-          cam.startFollow(this.player, true, 0.1, 0.1, 0, -this.scale.height / 4);
-          // Define a dead zone so camera only pans up when player exits top region
-          cam.setDeadzone(this.scale.width, this.scale.height - this.tileH);
-          // Shift deadzone down by one tile height to leave top margin
-          cam.deadzone.y = this.tileH;
-          this.updatePlayerPosition();
+          cam.setBounds(0, 0, this.mapW * this.tileW, this.mapH * this.tileH);
+          // Reserve space for header and footer
+          const topMargin = this.tileH * 2;
+          const bottomMargin = this.tileH * 2;
+          // Deadzone covers the central area where camera will not move
+          const dzHeight = this.scale.height - topMargin - bottomMargin;
+          cam.startFollow(this.player, true, 0.1, 0.1);
+          cam.setDeadzone(this.scale.width, dzHeight);
+          cam.deadzone.y = topMargin;
+          this.updatePlayerPosition();();
         }
         update(time,delta) {
           const dt = delta/1000, speed=3, diag=speed/Math.SQRT2;
