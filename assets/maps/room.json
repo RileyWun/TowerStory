@@ -847,7 +847,12 @@
       "tilewidth": 38,
       "tileheight": 38,
       "spacing": 0,
-      "margin": 0
+      "margin": 0,
+      "image": "../tiles/tileset.png",
+      "imagewidth": 352,
+      "imageheight": 114,
+      "columns": 9,
+      "tilecount": 27
     }
   ]
 }
