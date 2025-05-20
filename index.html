@@ -25,19 +25,14 @@
     window.addEventListener('load', () => {
       class BootScene extends Phaser.Scene {
         constructor() { super('Boot'); }
-        preload() {}
         create() { this.scene.start('Preload'); }
       }
 
       class PreloadScene extends Phaser.Scene {
         constructor() { super('Preload'); }
         preload() {
-          // Load Tiled map JSON and tileset image
-          // Load Tiled map JSON
           this.load.tilemapTiledJSON('room', 'assets/maps/room.json');
-          // Load tileset as spritesheet for manual isometric rendering
           this.load.spritesheet('tileset', 'assets/tiles/tileset.png', { frameWidth: 38, frameHeight: 38 });
-          // Load player spritesheet
           this.load.spritesheet('player', 'assets/player/Chibi-character-template_skin0_part2_by_AxulArt.png', { frameWidth: 32, frameHeight: 32 });
         }
         create() { this.scene.start('Main'); }
@@ -46,94 +41,88 @@
       class MainScene extends Phaser.Scene {
         constructor() { super('Main'); }
         create() {
-          // Create map and layers
           const map = this.make.tilemap({ key: 'room' });
-          const tileW = map.tileWidth;
-          const tileH = map.tileHeight;
-          const tileset = map.addTilesetImage('tileset', 'tileset', tileW, tileH, 0, 0);
+          this.tileW = map.tileWidth;
+          this.tileH = map.tileHeight;
+          const tileset = map.addTilesetImage('tileset', 'tileset', this.tileW, this.tileH, 0, 0);
 
-          // Manual isometric floor rendering
+          // Manual iso floor
           const mapW = map.width;
           const mapH = map.height;
-          // Center offsets
           this.offsetX = this.scale.width / 2;
-          this.offsetY = (this.scale.height - (mapW + mapH) * (tileH / 2)) / 2 + (tileH / 2);
-          // Draw floor tiles
+          this.offsetY = (this.scale.height - (mapW + mapH) * (this.tileH/2)) / 2 + (this.tileH/2);
+          this.floorSprites = this.add.group();
           for (let y = 0; y < mapH; y++) {
             for (let x = 0; x < mapW; x++) {
               const tile = map.getTileAt(x, y, false, 'Floor');
-              if (!tile) continue;
-              const gid = tile.index;
-              if (gid <= 0) continue;
-              const local = gid - 1;
-              const sx = (x - y) * (tileW / 2) + this.offsetX;
-              const sy = (x + y) * (tileH / 2) + this.offsetY;
-              this.add.sprite(sx, sy, 'tileset', local).setDepth(sy);
+              if (!tile || tile.index <= 0) continue;
+              const frame = tile.index - 1;
+              const sx = (x - y) * (this.tileW/2) + this.offsetX;
+              const sy = (x + y) * (this.tileH/2) + this.offsetY;
+              const spr = this.add.sprite(sx, sy, 'tileset', frame).setDepth(sy);
+              this.floorSprites.add(spr);
             }
           }
 
-          // Collision data from layer
-          this.collisionData = [];
-          const collisionMapData = map.getLayer('Collision').data;
-          this.collisionData = [];
-          for (let y = 0; y < mapH; y++) {
-            this.collisionData[y] = [];
-            for (let x = 0; x < mapW; x++) {
-              const t = collisionMapData[y][x];
-              this.collisionData[y][x] = t && t.index > 0;
-            }
-          }
+          // Collision map
+          const collLayer = map.getLayer('Collision').data;
+          this.collisionData = collLayer.map(row => row.map(t => (t && t.index > 0)));
 
-          // Spawn player at object position
-          const spawnPoint = map.findObject('Objects', obj => obj.name === 'PlayerSpawn');
-          // Use manual iso coords centered on spawn
-          this.playerIsoX = spawnPoint.x / tileW;
-          this.playerIsoY = spawnPoint.y / tileH;
-          this.player = this.add.sprite(0, 0, 'player').setOrigin(0.5, 1);
-          // Initial placement
-          const initX = (this.playerIsoX - this.playerIsoY) * (tileW / 2) + this.offsetX;
-          const initY = (this.playerIsoX + this.playerIsoY) * (tileH / 2) + this.offsetY;
-          this.player.setPosition(initX, initY).setDepth(initY);
+          // Player spawn
+          const spawn = map.findObject('Objects', o => o.name === 'PlayerSpawn');
+          this.playerIsoX = spawn.x / this.tileW;
+          this.playerIsoY = spawn.y / this.tileH;
+          this.player = this.add.sprite(0,0,'player').setOrigin(0.5,1);
+          this.updatePlayerPosition();
 
-          // Player animations (8 directions) (8 directions)
-          [['down',0,3],['left',12,15],['right',24,27],['up',36,39],
-           ['down-left',48,51],['down-right',60,63],['up-left',72,75],['up-right',84,87]
-          ].forEach(([key,start,end]) => {
-            this.anims.create({ key: `walk-${key}`, frames: this.anims.generateFrameNumbers('player', { start, end }), frameRate: 8, repeat: -1 });
+          // Animations
+          [['down',0,3],['left',12,15],['right',24,27],['up',36,39],['down-left',48,51],['down-right',60,63],['up-left',72,75],['up-right',84,87]].forEach(([k,s,e])=>{
+            this.anims.create({ key:`walk-${k}`, frames:this.anims.generateFrameNumbers('player',{start:s,end:e}), frameRate:8, repeat:-1 });
           });
 
-          // Physics collision will be implemented later via collisionData
-
-          // Input keys
           this.keys = this.input.keyboard.addKeys('W,A,S,D');
-
-          // Camera setup
           const cam = this.cameras.main;
-          cam.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
-          cam.startFollow(this.player, true, 0.1, 0.1);
-          cam.setZoom(1);
+          cam.setBounds(0,0,map.widthInPixels,map.heightInPixels);
+          cam.startFollow(this.player,true,0.1,0.1);
         }
 
         update(time, delta) {
-          const speed = 100;
-          let moving = false;
+          const dt = delta/1000;
+          const speed = 3;
+          let moved = false;
           let dir = this.lastDir || 'down';
-          const dt = delta / 1000;
-          const { W, A, S, D } = this.keys;
+          let nx = this.playerIsoX;
+          let ny = this.playerIsoY;
+          const { W,A,S,D } = this.keys;
+          // Compute desired iso move
+          if (W.isDown) { ny -= speed*dt; dir='up'; moved=true; this.player.play('walk-up',true); }
+          else if (S.isDown) { ny += speed*dt; dir='down'; moved=true; this.player.play('walk-down',true); }
+          if (A.isDown) { nx -= speed*dt; dir='left'; moved=true; this.player.play('walk-left',true); }
+          else if (D.isDown) { nx += speed*dt; dir='right'; moved=true; this.player.play('walk-right',true); }
 
-          if (W.isDown) { this.player.y -= speed * dt; this.player.play('walk-up', true); dir = 'up'; moving = true; }
-          if (S.isDown) { this.player.y += speed * dt; this.player.play('walk-down', true); dir = 'down'; moving = true; }
-          if (A.isDown) { this.player.x -= speed * dt; this.player.play('walk-left', true); dir = 'left'; moving = true; }
-          if (D.isDown) { this.player.x += speed * dt; this.player.play('walk-right', true); dir = 'right'; moving = true; }
-
-          if (!moving) {
-            this.player.anims.stop();
-            const idleFrame = { down: 0, left: 12, right: 24, up: 36 }[dir];
-            this.player.setFrame(idleFrame);
+          // Collision test
+          const tileX = Phaser.Math.Clamp(Math.floor(nx), 0, this.collisionData[0].length-1);
+          const tileY = Phaser.Math.Clamp(Math.floor(ny), 0, this.collisionData.length-1);
+          if (!this.collisionData[tileY][tileX]) {
+            this.playerIsoX = nx;
+            this.playerIsoY = ny;
           }
 
-          this.player.setDepth(this.player.y);
+          if (!moved) {
+            this.player.anims.stop();
+            const idle = {down:0,left:12,right:24,up:36}[dir];
+            this.player.setFrame(idle);
+          }
           this.lastDir = dir;
+          this.updatePlayerPosition();
+        }
+
+        updatePlayerPosition() {
+          const x = this.playerIsoX;
+          const y = this.playerIsoY;
+          const sx = (x - y)*(this.tileW/2) + this.offsetX;
+          const sy = (x + y)*(this.tileH/2) + this.offsetY;
+          this.player.setPosition(sx,sy).setDepth(sy);
         }
       }
 
@@ -141,7 +130,7 @@
         type: Phaser.AUTO,
         parent: 'game-container',
         scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
-        physics: { default: 'arcade', arcade: { debug: false } },
+        physics: { default: 'arcade' },
         scene: [BootScene, PreloadScene, MainScene]
       };
       new Phaser.Game(config);
