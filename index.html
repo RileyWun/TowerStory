@@ -32,7 +32,8 @@
         preload() {
           // Load Tiled JSON map and tileset image
           this.load.tilemapTiledJSON('room', 'assets/maps/room.json');
-          this.load.image('tiles', 'assets/tiles/tileset.png');
+          // Load the combined tileset (top 3 rows of spritesheet)
+          this.load.image('tileset', 'assets/tiles/tileset.png');
           // Load player spritesheet
           this.load.spritesheet('player','assets/player/Chibi-character-template_skin0_part2_by_AxulArt.png',{frameWidth:32,frameHeight:32});
         }
@@ -44,7 +45,8 @@
         create(){
           // Create Tilemap
           const map = this.make.tilemap({ key: 'room' });
-          const tileset = map.addTilesetImage('tileset', 'tiles');
+          // Use the new tileset key matching the JSON tileset name
+          const tileset = map.addTilesetImage('tileset', 'tileset');
           this.groundLayer = map.createLayer('Floor', tileset);
           this.groundLayer.setDepth(0);
 
