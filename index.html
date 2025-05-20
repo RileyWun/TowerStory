@@ -64,9 +64,12 @@
             }
           }
 
-          // Collision map
+          // Floor and collision maps
+          const floorLayerData = map.getLayer('Floor').data;
+          this.floorData = floorLayerData.map(row => row.map(t => (t && t.index > 0)));
           const collLayer = map.getLayer('Collision').data;
           this.collisionData = collLayer.map(row => row.map(t => (t && t.index > 0)));
+(row => row.map(t => (t && t.index > 0)));
 
           // Player spawn
           const spawn = map.findObject('Objects', o => o.name === 'PlayerSpawn');
@@ -100,10 +103,10 @@
           if (A.isDown) { nx -= speed*dt; dir='left'; moved=true; this.player.play('walk-left',true); }
           else if (D.isDown) { nx += speed*dt; dir='right'; moved=true; this.player.play('walk-right',true); }
 
-          // Collision test
-          const tileX = Phaser.Math.Clamp(Math.floor(nx), 0, this.collisionData[0].length-1);
-          const tileY = Phaser.Math.Clamp(Math.floor(ny), 0, this.collisionData.length-1);
-          if (!this.collisionData[tileY][tileX]) {
+          // Collision test: only move if on floor and not hitting collision
+          const tileX = Phaser.Math.Clamp(Math.floor(nx), 0, this.floorData[0].length - 1);
+          const tileY = Phaser.Math.Clamp(Math.floor(ny), 0, this.floorData.length - 1);
+          if (this.floorData[tileY][tileX] && !this.collisionData[tileY][tileX]) {
             this.playerIsoX = nx;
             this.playerIsoY = ny;
           }
