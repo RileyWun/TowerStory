@@ -70,11 +70,15 @@
             this.anims.create({key:`walk-${k}`,frames:this.anims.generateFrameNumbers('player',{start:s,end:e}),frameRate:8,repeat:-1});
           });
 
-          // Physics and collision
-          this.physics.world.convertTilemapLayer(this.collisionLayer);
-          this.physics.add.existing(this.player);
+          // Enable Arcade physics on player
+          this.player = this.physics.add.sprite(spawn.x, spawn.y, 'player').setOrigin(0.5,1);
           this.player.body.setSize(16,16).setOffset(8,16);
-          this.physics.add.collider(this.player, this.collisionLayer);
+
+          // Configure collision on the Collision layer
+          this.collisionLayer.setCollisionByExclusion([-1]);
+
+          // Add collider between player and collision layer
+          this.physics.add.collider(this.player, this.collisionLayer);(this.player, this.collisionLayer);
 
           // Input
           this.keys = this.input.keyboard.addKeys('W,A,S,D');
