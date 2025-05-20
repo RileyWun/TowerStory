@@ -24,7 +24,11 @@
       class BootScene extends Phaser.Scene {
         constructor(){super('Boot');}
         preload(){}
-        create(){this.scene.start('Preload');}
+        create(){
+          // Store map & tile dimensions
+          const map = this.make.tilemap({ key: 'room' });
+          this.tileW = map.tileWidth;
+          this.tileH = map.tileHeight;this.scene.start('Preload');}
       }
 
       class PreloadScene extends Phaser.Scene {
@@ -78,7 +82,7 @@
           this.collisionLayer.setCollisionByExclusion([-1]);
 
           // Add collider between player and collision layer
-          this.physics.add.collider(this.player, this.collisionLayer);(this.player, this.collisionLayer);
+          this.physics.add.collider(this.player, this.collisionLayer);
 
           // Input
           this.keys = this.input.keyboard.addKeys('W,A,S,D');
