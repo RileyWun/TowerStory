@@ -115,7 +115,7 @@
           const cam = this.cameras.main;
           cam.setBounds(0, 0, this.mapW * this.tileW, this.mapH * this.tileH);
           cam.startFollow(this.player, true, 0.1, 0.1, 0, -this.tileH);
-          this.updatePlayerPosition();();
+          this.updatePlayerPosition();
         }
         update(time,delta) {
           const dt = delta/1000, speed=3, diag=speed/Math.SQRT2;
