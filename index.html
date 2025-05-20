@@ -74,18 +74,15 @@
 
           // Collision data from layer
           this.collisionData = [];
-          const collisionLayer = map.getLayer('Collision').data;
+          const collisionMapData = map.getLayer('Collision').data;
+          this.collisionData = [];
           for (let y = 0; y < mapH; y++) {
             this.collisionData[y] = [];
             for (let x = 0; x < mapW; x++) {
-              const tile = collisionLayer[y][x];
-              this.collisionData[y][x] = tile && tile.index > 0;
+              const t = collisionMapData[y][x];
+              this.collisionData[y][x] = t && t.index > 0;
             }
           }
- (invisible)
-          const collisionLayer = map.createLayer('Collision', [tileset], 0, 0);
-          collisionLayer.setVisible(false);
-          collisionLayer.setCollisionByExclusion([-1]);
 
           // Spawn player at object position
           const spawnPoint = map.findObject('Objects', obj => obj.name === 'PlayerSpawn');
@@ -105,8 +102,7 @@
             this.anims.create({ key: `walk-${key}`, frames: this.anims.generateFrameNumbers('player', { start, end }), frameRate: 8, repeat: -1 });
           });
 
-          // Physics collision
-          this.physics.add.collider(this.player, collisionLayer);
+          // Physics collision will be implemented later via collisionData
 
           // Input keys
           this.keys = this.input.keyboard.addKeys('W,A,S,D');
