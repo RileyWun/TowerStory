@@ -35,7 +35,8 @@
         constructor() { super('Preload'); }
         preload() {
           this.load.tilemapTiledJSON('room', 'assets/maps/room.json');
-          this.load.image('tileset', 'assets/tiles/tileset.png');
+          // Load the tileset as a spritesheet for correct frame slicing
+          this.load.spritesheet('tileset', 'assets/tiles/tileset.png', { frameWidth:38, frameHeight:38 });
           this.load.spritesheet('player','assets/player/Chibi-character-template_skin0_part2_by_AxulArt.png',{ frameWidth:32, frameHeight:32 });
           this.load.image('chest','assets/objects/chest.png');
           this.load.image('npc','assets/objects/npc.png');
