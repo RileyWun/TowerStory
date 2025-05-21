@@ -8,10 +8,9 @@
     body { display:grid; grid-template-rows:80px auto 60px; grid-template-columns:200px auto 200px; grid-template-areas:"header header header" "sidebar-left main sidebar-right" "footer footer footer"; }
     #header { grid-area: header; }
     #sidebar-left { grid-area: sidebar-left; }
-    #game-container { grid-area: main; }
+    #game-container { grid-area: main; position:relative; width:100%; height:100%; overflow:hidden; }
     #sidebar-right { grid-area: sidebar-right; }
     #footer { grid-area: footer; }
-    #game-container { position: relative; width:100%; height:100%; overflow:hidden; }
     #game-container canvas { display:block; margin:auto; }
   </style>
 </head>
@@ -39,8 +38,8 @@
           this.load.image('chest', 'assets/objects/chest.png');
           this.load.image('npc', 'assets/objects/npc.png');
           this.load.image('potion', 'assets/icons/potion.png');
-          this.load.image('sword',  'assets/icons/sword.png');
-          this.load.image('coin',   'assets/icons/coin.png');
+          this.load.image('sword', 'assets/icons/sword.png');
+          this.load.image('coin', 'assets/icons/coin.png');
         }
         create() { this.scene.start('Main'); }
       }
@@ -49,74 +48,77 @@
         constructor() { super('Main'); }
         create() {
           const map = this.make.tilemap({ key: 'room' });
-          this.tileW = map.tileWidth; this.tileH = map.tileHeight;
-          this.mapW = map.width; this.mapH = map.height;
-          map.addTilesetImage('tileset', 'tileset', this.tileW, this.tileH);
-
+          const tileset = map.addTilesetImage('tileset', 'tileset', map.tileWidth, map.tileHeight);
           // Floor
-          this.offsetX = this.scale.width/2;
-          this.offsetY = (this.scale.height - (this.mapW + this.mapH)*(this.tileH/2))/2 + this.tileH/2;
-          this.floorData = map.getLayer('Floor').data.map(r=>r.map(t=>t.index>0));
-          this.collisionData = map.getLayer('Collision').data.map(r=>r.map(t=>t.index>0));
-          this.floorGroup = this.add.group();
-          map.getLayer('Floor').data.forEach((row,y)=> row.forEach((t,x)=>{
-            if (t.index > 0) {
-              const frame = t.index-1;
-              const sx = (x-y)*(this.tileW/2) + this.offsetX;
-              const sy = (x+y)*(this.tileH/2) + this.offsetY;
-              this.add.image(sx, sy, 'tileset', frame).setDepth(sy);
-            }
-          }));
-
+          this.offsetX = this.scale.width / 2;
+          this.offsetY = (this.scale.height - (map.width + map.height) * (map.tileHeight / 2)) / 2 + map.tileHeight/2;
+          this.floorData = map.getLayer('Floor').data.map(r => r.map(t => t.index > 0));
+          this.collisionData = map.getLayer('Collision').data.map(r => r.map(t => t.index > 0));
+          map.getLayer('Floor').data.forEach((row, y) => {
+            row.forEach((tile, x) => {
+              if (tile.index > 0) {
+                const frame = tile.index - 1;
+                const sx = (x - y) * (map.tileWidth / 2) + this.offsetX;
+                const sy = (x + y) * (map.tileHeight / 2) + this.offsetY;
+                this.add.image(sx, sy, 'tileset', frame).setDepth(sy);
+              }
+            });
+          });
           // Objects
-          const objectLayer = map.getObjectLayer('Objects');
-          const spawn = map.findObject('Objects', o=>o.name==='PlayerSpawn');
-          objectLayer.objects.push({ name:'Chest1', type:'Chest', x:spawn.x+this.tileW*2, y:spawn.y, visible:true });
-          objectLayer.objects.push({ name:'NPC1',   type:'NPC',   x:spawn.x-this.tileW*2, y:spawn.y, visible:true });
+          const objLayer = map.getObjectLayer('Objects');
+          const spawn = map.findObject('Objects', o => o.name === 'PlayerSpawn');
+          objLayer.objects.push({ name:'Chest1', type:'Chest', x: spawn.x + map.tileWidth*2, y: spawn.y, visible:true });
+          objLayer.objects.push({ name:'NPC1',   type:'NPC',   x: spawn.x - map.tileWidth*2, y: spawn.y, visible:true });
+
           this.playerInv = [{ iconKey:'potion', count:3 },{ iconKey:'sword', count:1 }];
           this.chests = [];
-          objectLayer.objects.forEach(o=>{
-            const ix=o.x/this.tileW, iy=o.y/this.tileH;
-            const sx=(ix-iy)*(this.tileW/2)+this.offsetX;
-            const sy=(ix+iy)*(this.tileH/2)+this.offsetY;
-            if (o.type==='Chest') {
-              const chest = this.add.image(sx,sy,'chest').setOrigin(0.5,1).setDepth(sy).setInteractive();
+          objLayer.objects.forEach(o => {
+            const ix = o.x / map.tileWidth, iy = o.y / map.tileHeight;
+            const sx = (ix - iy) * (map.tileWidth / 2) + this.offsetX;
+            const sy = (ix + iy) * (map.tileHeight / 2) + this.offsetY;
+            if (o.type === 'Chest') {
+              const chest = this.add.image(sx, sy, 'chest').setOrigin(0.5,1).setDepth(sy).setInteractive();
               chest.inventory = [{ iconKey:'coin', count:2 },{ iconKey:'potion', count:1 }];
-              chest.on('pointerdown', ()=>{ this.scene.pause(); this.scene.launch('InventoryScene', { playerInv:this.playerInv, chestInv:chest.inventory }); });
+              chest.on('pointerdown', () => {
+                this.scene.pause();
+                this.scene.launch('InventoryScene', { playerInv: this.playerInv, chestInv: chest.inventory });
+              });
               this.chests.push(chest);
-            } else if (o.type==='NPC') {
-              this.add.image(sx,sy,'npc').setOrigin(0.5,1).setDepth(sy);
+            } else if (o.type === 'NPC') {
+              this.add.image(sx, sy, 'npc').setOrigin(0.5,1).setDepth(sy);
             }
           });
-
           // Player
           this.player = this.add.sprite(0,0,'player').setOrigin(0.5,1);
           this.createPlayerAnims();
-          this.playerIsoX = spawn.x/this.tileW;
-          this.playerIsoY = spawn.y/this.tileH;
-          this.player.setDepth(this.playerIsoX+this.playerIsoY);
+          this.playerIsoX = spawn.x/map.tileWidth;
+          this.playerIsoY = spawn.y/map.tileHeight;
           this.keys = this.input.keyboard.addKeys('W,A,S,D');
           this.cameras.main.setBounds(0,0,map.widthInPixels,map.heightInPixels);
           this.cameras.main.startFollow(this.player,true,0.1,0.1);
-          this.events.on('inventoryClosed', data=>{ this.playerInv=data.playerInv; this.chests[0].inventory=data.chestInv; this.scene.resume(); });
+          this.events.on('inventoryClosed', data => {
+            this.playerInv = data.playerInv;
+            this.chests[0].inventory = data.chestInv;
+            this.scene.resume();
+          });
         }
-        update(time,delta) {
-          const dt=delta/1000,spd=3;
+        update(t,d) {
+          const dt = d/1000, sp = 3;
           let moved=false, dir=this.lastDir||'down';
-          let nx=this.playerIsoX,ny=this.playerIsoY;
-          const {W,A,S,D}=this.keys;
-          if (W.isDown){ ny-=spd*dt; dir='up'; moved=true; this.player.play('walk-up',true); }
-          else if (S.isDown){ ny+=spd*dt; dir='down'; moved=true; this.player.play('walk-down',true); }
-          if (A.isDown){ nx-=spd*dt; dir='left'; moved=true; this.player.play('walk-left',true); }
-          else if (D.isDown){ nx+=spd*dt; dir='right'; moved=true; this.player.play('walk-right',true); }
+          let nx=this.playerIsoX, ny=this.playerIsoY;
+          const {W,A,S,D} = this.keys;
+          if (W.isDown){ ny-=sp*dt; dir='up'; moved=true; this.player.play('walk-up',true); }
+          else if (S.isDown){ ny+=sp*dt; dir='down'; moved=true; this.player.play('walk-down',true); }
+          if (A.isDown){ nx-=sp*dt; dir='left'; moved=true; this.player.play('walk-left',true); }
+          else if (D.isDown){ nx+=sp*dt; dir='right'; moved=true; this.player.play('walk-right',true); }
           const tx=Math.floor(nx), ty=Math.floor(ny);
-          if (nx>=0&&nx<this.mapW&&ny>=0&&ny<this.mapH && this.floorData[ty][tx] && !this.collisionData[ty][tx]) {
+          if (nx>=0&&nx< this.floorData[0].length && ny>=0&&ny<this.floorData.length && this.floorData[ty][tx] && !this.collisionData[ty][tx]) {
             this.playerIsoX=nx; this.playerIsoY=ny;
           }
-          if (!moved){ this.player.anims.stop(); this.player.setFrame({down:0,left:12,right:24,up:36}[dir]); }
+          if (!moved) { this.player.anims.stop(); this.player.setFrame({down:0,left:12,right:24,up:36}[dir]); }
           this.lastDir=dir;
-          const sx=(this.playerIsoX-this.playerIsoY)*(this.tileW/2)+this.offsetX;
-          const sy=(this.playerIsoX+this.playerIsoY)*(this.tileH/2)+this.offsetY;
+          const sx=(this.playerIsoX-this.playerIsoY)*(map.tileWidth/2)+this.offsetX;
+          const sy=(this.playerIsoX+this.playerIsoY)*(map.tileHeight/2)+this.offsetY;
           this.player.setPosition(sx,sy).setDepth(sy);
         }
         createPlayerAnims(){
@@ -128,116 +130,55 @@
 
       class InventoryScene extends Phaser.Scene {
         constructor(){ super('InventoryScene'); }
-        init(data){
-          this.playerInv = data.playerInv;
-          this.chestInv  = data.chestInv;
-        }
+        init(data){ this.playerInv=data.playerInv; this.chestInv=data.chestInv; }
         create(){
           const w = this.scale.width;
-          const h = this.scale.height;
-          this.pw = 200; this.ph = 300;
-          // Panels
-          this.leftPanel  = new Phaser.Geom.Rectangle(50, 50, this.pw, this.ph);
-          this.rightPanel = new Phaser.Geom.Rectangle(w - 50 - this.pw, 50, this.pw, this.ph);
-          // UI group for clearing
+          this.pw=200; this.ph=300;
+          this.leftPanel  = new Phaser.Geom.Rectangle(50,50,this.pw,this.ph);
+          this.rightPanel = new Phaser.Geom.Rectangle(w-50-this.pw,50,this.pw,this.ph);
           this.uiGroup = this.add.group();
-          // Zones for dragging panels
-          this.leftZone  = this.add.zone(this.leftPanel.x, this.leftPanel.y, this.pw, 20).setOrigin(0).setInteractive();
-          this.rightZone = this.add.zone(this.rightPanel.x, this.rightPanel.y, this.pw, 20).setOrigin(0).setInteractive();
-          this.input.setDraggable([this.leftZone, this.rightZone]);
-          // Drag handlers
-          this.input.on('dragstart', (pointer, obj) => {
-            if (obj !== this.leftZone && obj !== this.rightZone) {
-              obj.setDepth(1000);
-            }
-          });
-          this.input.on('drag', (pointer, obj, dx, dy) => {
-            if (obj === this.leftZone) {
-              this.leftPanel.x = dx; this.leftZone.x = dx;
-              this.leftPanel.y = dy; this.leftZone.y = dy;
-            } else if (obj === this.rightZone) {
-              this.rightPanel.x = dx; this.rightZone.x = dx;
-              this.rightPanel.y = dy; this.rightZone.y = dy;
-            } else {
-              obj.x = dx; obj.y = dy;
-            }
+          this.leftZone  = this.add.zone(this.leftPanel.x,this.leftPanel.y,this.pw,20).setOrigin(0).setInteractive();
+          this.rightZone = this.add.zone(this.rightPanel.x,this.rightPanel.y,this.pw,20).setOrigin(0).setInteractive();
+          this.input.setDraggable([this.leftZone,this.rightZone]);
+          this.input.on('dragstart',(p,obj)=>{ if(obj!==this.leftZone&&obj!==this.rightZone) obj.setDepth(1000); });
+          this.input.on('drag',(p,obj,dx,dy)=>{
+            if(obj===this.leftZone){ this.leftPanel.x=dx; this.leftZone.x=dx; this.leftPanel.y=dy; this.leftZone.y=dy; }
+            else if(obj===this.rightZone){ this.rightPanel.x=dx; this.rightZone.x=dx; this.rightPanel.y=dy; this.rightZone.y=dy; }
+            else { obj.x=dx; obj.y=dy; }
             this.redraw();
           });
-          this.input.on('dragend', this.onDragEnd, this);
-          // ESC to close
-          this.input.keyboard.on('keydown-ESC', () => this.close());
-          // Initial draw
+          this.input.on('dragend',this.onDragEnd,this);
+          this.input.keyboard.on('keydown-ESC',()=>this.close());
           this.redraw();
         }
         redraw(){
-          // Clear previous UI
-          this.uiGroup.clear(true, true);
-          // Draw panels background
-          const g = this.add.graphics().fillStyle(0x222222, 0.8);
-          g.fillRectShape(this.leftPanel);
-          g.fillRectShape(this.rightPanel);
+          this.uiGroup.clear(true,true);
+          const g=this.add.graphics().fillStyle(0x222222,0.8);
+          g.fillRectShape(this.leftPanel).fillRectShape(this.rightPanel);
           this.uiGroup.add(g);
-          // Draw titles
-          const t1 = this.add.text(this.leftPanel.x+10, this.leftPanel.y+10, 'Inventory', {fontSize:'16px',fill:'#fff'}).setDepth(1);
-          const t2 = this.add.text(this.rightPanel.x+10, this.rightPanel.y+10, 'Chest', {fontSize:'16px',fill:'#fff'}).setDepth(1);
-          this.uiGroup.addMultiple([t1, t2]);
-          // Draw slots
-          this.drawSlots(this.leftPanel, this.playerInv, 'player');
-          this.drawSlots(this.rightPanel, this.chestInv,  'chest');
+          const t1=this.add.text(this.leftPanel.x+10,this.leftPanel.y+10,'Inventory',{fontSize:'16px',fill:'#fff'}).setDepth(1);
+          const t2=this.add.text(this.rightPanel.x+10,this.rightPanel.y+10,'Chest',{fontSize:'16px',fill:'#fff'}).setDepth(1);
+          this.uiGroup.addMultiple([t1,t2]);
+          this.drawSlots(this.leftPanel,this.playerInv,'player');
+          this.drawSlots(this.rightPanel,this.chestInv,'chest');
         }
-        drawSlots(panel, arr, source){
-          const cols=4, rows=5;
-          arr.forEach((item, i) => {
-            const count = item.count || 1;
-            const col = i % cols;
-            const row = Math.floor(i / cols);
-            if (row >= rows) return;
-            const x = panel.x + 10 + col * 48;
-            const y = panel.y + 40 + row * 48;
-            const slotBg = this.add.rectangle(x, y, 44, 44, 0x444444).setOrigin(0);
-            this.uiGroup.add(slotBg);
-            const icon = this.add.image(x+22, y+22, item.iconKey)
-                              .setInteractive({ draggable: true })
-                              .setData('source', source)
-                              .setData('index', i);
-            this.uiGroup.add(icon);
-            if (count > 1) {
-              const cntText = this.add.text(x+32, y+32, count.toString(), {fontSize:'12px',fill:'#fff'}).setOrigin(1);
-              this.uiGroup.add(cntText);
-            }
+        drawSlots(panel,arr,source){ const cols=4,rows=5;
+          arr.forEach((it,i)=>{ const cnt=it.count||1, c=i%cols, r=Math.floor(i/cols); if(r>=rows)return; const x=panel.x+10+c*48, y=panel.y+40+r*48;
+            const slot=this.add.rectangle(x,y,44,44,0x444444).setOrigin(0);
+            const icon=this.add.image(x+22,y+22,it.iconKey).setInteractive({draggable:true}).setData('source',source).setData('index',i);
+            this.uiGroup.addMultiple([slot,icon]);
+            if(cnt>1) this.uiGroup.add(this.add.text(x+32,y+32,cnt.toString(),{fontSize:'12px',fill:'#fff'}).setOrigin(1));
           });
         }
-        onDragEnd(pointer, icon) {
-          // Only handle icon drags
-          const source = icon ? icon.getData('source') : null;
-          if (!source) return;
-          const idx = icon.getData('index');
-          const srcArr = source === 'player' ? this.playerInv : this.chestInv;
-          if (idx < 0 || idx >= srcArr.length) return;
-          const dstArr   = source === 'player' ? this.chestInv : this.playerInv;
-          const dstPanel = source === 'player' ? this.rightPanel : this.leftPanel;
-          const x = pointer.x, y = pointer.y;
-          if (dstPanel.contains(x, y)) {
-            const item = srcArr[idx];
-            const existing = dstArr.find(i => i.iconKey === item.iconKey);
-            if (existing) {
-              existing.count += item.count || 1;
-            } else if (dstArr.length < 20) {
-              dstArr.push({ iconKey: item.iconKey, count: item.count || 1 });
-            }
-            srcArr.splice(idx, 1);
-          }
-          this.redraw();
-        }
-        close(){
-          this.scene.get('Main').events.emit('inventoryClosed', { playerInv: this.playerInv, chestInv: this.chestInv });
-          this.scene.stop();
-        }
+        onDragEnd(p,icon){ const source=icon.getData('source'); if(!source)return; const idx=icon.getData('index'); const srcArr=source==='player'?this.playerInv:this.chestInv; if(idx<0||idx>=srcArr.length) return;
+          const dstArr=source==='player'?this.chestInv:this.playerInv; const dstPanel=source==='player'?this.rightPanel:this.leftPanel; const x=p.x,y=p.y;
+          if(dstPanel.contains(x,y)){ const itm=srcArr[idx]; const ex=dstArr.find(i=>i.iconKey===itm.iconKey); if(ex) ex.count+=itm.count||1; else if(dstArr.length<20) dstArr.push({iconKey:itm.iconKey,count:itm.count||1}); srcArr.splice(idx,1);} this.redraw(); }
+        close(){ this.scene.get('Main').events.emit('inventoryClosed',{playerInv:this.playerInv,chestInv:this.chestInv}); this.scene.stop(); }
       }
-
+      
       const config={ type:Phaser.AUTO, parent:'game-container', scale:{mode:Phaser.Scale.FIT,autoCenter:Phaser.Scale.CENTER_BOTH}, physics:{default:'arcade'}, scene:[BootScene,PreloadScene,MainScene,InventoryScene] };
       new Phaser.Game(config);
     });
-  <\/script>
+  </script>
 </body>
 </html>
