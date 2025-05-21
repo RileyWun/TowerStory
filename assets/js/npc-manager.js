@@ -4,11 +4,17 @@ export class NPCManager {
     this.npcs = [];
   }
 
+  /**
+   * (Optional) Preload any NPC-specific assets here.
+   */
   preload() {
-    // If different NPCs have unique spritesheets, load them here.
     // e.g. this.scene.load.spritesheet('npcTypeA', 'assets/npcs/typeA.png', { frameWidth:64, frameHeight:64 });
   }
 
+  /**
+   * Spawn NPC sprites from a Tiled object layer, reading their `npcId` property.
+   * @param {array} objectLayer - map.getObjectLayer('Objects').objects
+   */
   createFromObjects(objectLayer) {
     const { tileW, tileH, offsetX, offsetY } = this.scene;
     objectLayer
@@ -23,10 +29,18 @@ export class NPCManager {
           .setOrigin(0.5, 1)
           .setDepth(sy)
           .setInteractive();
+        // Attach the Tiled `npcId` property or fallback to object `id`
+        const prop = (o.properties || []).find(p => p.name === 'npcId');
+        sprite.npcId = prop && prop.value ? prop.value : o.id;
         this.npcs.push(sprite);
       });
   }
 
+  /**
+   * Bind a key (default 'F') to trigger conversations when near an NPC.
+   * @param {string} key - keyboard key for interaction
+   * @param {function} callback - fired with the NPC sprite when in range
+   */
   enableConversations(key = 'F', callback) {
     this.scene.input.keyboard.on(`keydown-${key}`, () => {
       const { x, y } = this.scene.player;
