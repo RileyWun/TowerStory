@@ -128,8 +128,26 @@
               }
             }
           });
+        } // end of MainScene.create
+        update(time, delta) {
+          // ... existing update code ...
+        }
+        createPlayerAnims() {
+          // ... existing anims code ...
+        }
+      } // end of MainScene class
+
+      // InventoryScene class here
+
+      const config = {
+        type: Phaser.AUTO,
+        parent: 'game-container',
+        scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
+        physics: { default: 'arcade' },
+        scene: [BootScene, PreloadScene, MainScene, InventoryScene]
+      };
       new Phaser.Game(config);
-      });
+    });
   </script>
 </body>
 </html>
