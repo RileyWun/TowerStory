@@ -98,9 +98,21 @@
           this.createPlayerAnims();
           this.playerIsoX = spawn.x/map.tileWidth;
           this.playerIsoY = spawn.y/map.tileHeight;
+          // Initial player placement
+          const initX = (this.playerIsoX - this.playerIsoY) * (this.tileW/2) + this.offsetX;
+          const initY = (this.playerIsoX + this.playerIsoY) * (this.tileH/2) + this.offsetY;
+          this.player.setPosition(initX, initY).setDepth(initY);
           this.keys = this.input.keyboard.addKeys('W,A,S,D');
           this.cameras.main.setBounds(0,0,map.widthInPixels,map.heightInPixels);
           this.cameras.main.startFollow(this.player,true,0.1,0.1);
+          this.events.on('inventoryClosed', data => {
+            this.playerInv = data.playerInv;
+            this.chests[0].inventory = data.chestInv;
+            this.scene.resume();
+          });
+
+          // Toggle inventory with "I"
+(this.player,true,0.1,0.1);
           this.events.on('inventoryClosed', data => {
             this.playerInv = data.playerInv;
             this.chests[0].inventory = data.chestInv;
@@ -175,9 +187,14 @@
             }
           });
           this.input.on('dragend', this.onDragEnd, this);
+
+          // Close inventory with "ESC"
+          this.input.keyboard.on('keydown-ESC', () => this.close());
+
+          // Close inventory with "I"
           this.input.keyboard.on('keydown-I', () => this.close());
 
-          this.redraw();
+          this.redraw();();
         }
 
         redraw() {
