@@ -173,8 +173,7 @@
               obj.y = dy;
             }
           });
-          });
-          this.input.on('dragend',this.onDragEnd,this);
+          this.input.on('dragend', this.onDragEnd, this);',this.onDragEnd,this);
           this.input.keyboard.on('keydown-ESC',()=>this.close());
           this.redraw();
         }
