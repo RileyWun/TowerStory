@@ -120,7 +120,7 @@
             else this.openInventory(this.playerInv, []);
           });
 
-          // Open chest
+                    // Open chest
           this.input.keyboard.on('keydown-E', () => {
             const { x, y } = this.player;
             this.chests.forEach(chest => {
@@ -128,6 +128,66 @@
                 this.openInventory(this.playerInv, chest.inventory);
               }
             });
+          });
+
+          // NPC interactions: track NPC sprites and allow dialog
+          this.npcs = [];
+          // At NPC creation above, ensure pushing to this.npcs
+          layer.forEach(o => {
+            if (o.type === 'NPC') {
+              const ix = o.x/this.tileW, iy = o.y/this.tileH;
+              const sx = (ix-iy)*(this.tileW/2)+this.offsetX;
+              const sy = (ix+iy)*(this.tileH/2)+this.offsetY;
+              const npcSprite = this.add.image(sx,sy,'npc').setOrigin(0.5,1).setDepth(sy);
+              this.npcs.push(npcSprite);
+            }
+          });
+
+          // Talk to NPC with F when near
+          this.input.keyboard.on('keydown-F', () => {
+            const { x, y } = this.player;
+            this.npcs.forEach(npc => {
+              if (Phaser.Math.Distance.Between(x,y,npc.x,npc.y) < 50) {
+                this.openDialogue(["Hello traveler!", "Welcome to TowerStory."]);
+              }
+            });
+          });
+        }
+
+        openDialogue(lines) {
+          this.scene.pause();
+          this.scene.launch('DialogueScene', { lines });
+        }
+
+        // Insert above closeInventory or after
+
+        closeInventory() {
+          this.scene.stop('InventoryScene');
+          this.scene.resume();
+        }
+      }
+
+      // Dialogue Scene
+      class DialogueScene extends Phaser.Scene {
+        constructor(){ super('DialogueScene'); }
+        init(data){ this.lines = data.lines || []; }
+        create(){
+          const w = this.scale.width, h = this.scale.height;
+          const bg = this.add.graphics().fillStyle(0x000000, 0.7).fillRect(w/4, h/4, w/2, h/4);
+          this.texts = this.lines.map((line, i) =>
+            this.add.text(w/4 + 20, h/4 + 20 + i*24, line, { fontSize:'18px', fill:'#fff' })
+          );
+          // Close on any key or click
+          this.input.keyboard.once('keydown-ESC', () => this.closeDialog());
+          this.input.once('pointerdown', () => this.closeDialog());
+        }
+        closeDialog(){
+          this.scene.stop('DialogueScene');
+          this.scene.resume('Main');
+        }
+      }
+
+      // ... rest of code unchanged ...            });
           });
         }
         openInventory(playerInv, chestInv) {
