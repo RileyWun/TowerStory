@@ -120,12 +120,24 @@
           });
           // NPC conversation handling delegated to NPCManager
           this.npcManager.enableConversations('F', npc => {
-            this.openDialogue(["Hello traveler!","Welcome to TowerStory."]);
+            // Launch choice dialog with two options
+            this.openChoice(
+              "Will you accept this quest?",
+              ["Yes, I will accept this quest", "I have to think about it, I'll talk to you later"]
+            );
           });
         }
         openInventory(playerInv,chestInv) { this.scene.pause(); this.scene.launch('InventoryScene',{playerInv,chestInv}); }
         closeInventory() { this.scene.stop('InventoryScene'); this.scene.resume(); }
-        openDialogue(lines) { this.scene.pause(); this.scene.launch('DialogueScene',{lines}); }
+        openDialogue(lines) {
+          this.scene.pause();
+          this.scene.launch('DialogueScene',{lines});
+        }
+
+        openChoice(question, options) {
+          this.scene.pause();
+          this.scene.launch('ChoiceScene',{question,options});
+        }); }
         update(time,delta) {
           const dt=delta/1000, speed=3; let moved=false, dir=this.lastDir||'down';
           let nx=this.playerIsoX, ny=this.playerIsoY; const {W,A,S,D}=this.keys;
@@ -160,6 +172,34 @@
         closeDialogue(){ this.scene.stop('DialogueScene'); this.scene.resume('Main'); }
       }
 
+      // Choice Scene for NPC dialogues
+      class ChoiceScene extends Phaser.Scene {
+        constructor(){ super('ChoiceScene'); }
+        init(data) {
+          this.question = data.question;
+          this.options  = data.options || [];
+        }
+        create() {
+          const w = this.scale.width, h = this.scale.height;
+          // Background box
+          this.add.graphics().fillStyle(0x000000,0.7).fillRect(w/4, h/4, w/2, h/4);
+          // Question text
+          this.add.text(w/4 + 20, h/4 + 20, this.question, { fontSize: '18px', fill: '#fff' });
+          // Option texts
+          this.options.forEach((opt, idx) => {
+            const txt = this.add.text(w/4 + 40, h/4 + 60 + idx*30, opt, { fontSize: '16px', fill: '#ff0' })
+              .setInteractive();
+            txt.on('pointerdown', () => this.select(idx));
+          });
+        }
+        select(choiceIndex) {
+          // You can dispatch events or callbacks here based on choiceIndex
+          console.log('Player selected option', choiceIndex);
+          this.scene.stop('ChoiceScene');
+          this.scene.resume('Main');
+        }
+      }
+
       // Inventory Scene
       class InventoryScene extends Phaser.Scene {
         constructor(){ super('InventoryScene'); }
@@ -189,7 +229,7 @@
         parent: 'game-container',
         scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
         physics: { default: 'arcade' },
-        scene: [BootScene, PreloadScene, MainScene, DialogueScene, InventoryScene]
+        scene: [BootScene, PreloadScene, MainScene, DialogueScene, ChoiceScene, InventoryScene]
       };
       new Phaser.Game(config);
     });
