@@ -42,6 +42,7 @@ export class NPCManager {
    * @param {function} callback - fired with the NPC sprite when in range
    */
   enableConversations(key = 'F', callback) {
+    // Keyboard interaction
     this.scene.input.keyboard.on(`keydown-${key}`, () => {
       const { x, y } = this.scene.player;
       this.npcs.forEach(npc => {
@@ -50,5 +51,13 @@ export class NPCManager {
         }
       });
     });
+    // Click / pointer interaction
+    this.npcs.forEach(npc => {
+      npc.on('pointerdown', () => {
+        const { x, y } = this.scene.player;
+        if (Phaser.Math.Distance.Between(x, y, npc.x, npc.y) < 50) {
+          callback(npc);
+        }
+      });
+    });
   }
-}
