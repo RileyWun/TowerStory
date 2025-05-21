@@ -136,7 +136,8 @@
 
         openChoice(question, options) {
           this.scene.pause();
-          this.scene.launch('ChoiceScene',{question,options});
+          this.scene.launch('ChoiceScene', { question, options });
+        }
         }); }
         update(time,delta) {
           const dt=delta/1000, speed=3; let moved=false, dir=this.lastDir||'down';
