@@ -156,12 +156,12 @@
         createPlayerAnims(){[['down',0,3],['left',12,15],['right',24,27],['up',36,39],['down-left',48,51],['down-right',60,63],['up-left',72,75],['up-right',84,87]].forEach(([k,s,e])=>{this.anims.create({key:`walk-${k}`,frames:this.anims.generateFrameNumbers('player',{start:s,end:e}),frameRate:8,repeat:-1});});}
       }
 
-      $1init(data){
+      init(data) {
           this.playerInv = data.playerInv;
-          // chestInv null means just inventory, any array (including empty) means chest UI visible
-          this.chestInv = (data.chestInv !== null ? data.chestInv : null);
+          // chestInv null means just inventory-only, any array (including empty) means chest UI visible
+          this.chestInv  = data.chestInv !== null ? data.chestInv : [];
           this.showChest = data.chestInv !== null;
-        }$2(){const w=this.scale.width,h=this.scale.height;this.add.graphics().fillStyle(0x000000,0.7).fillRect(w/4,h/4,w/2,h/4);this.lines.forEach((l,i)=>this.add.text(w/4+20,h/4+20+i*24,l,{fontSize:'18px',fill:'#fff'}));this.input.keyboard.once('keydown-ESC',()=>this.scene.stop('DialogueScene')&&this.scene.resume('Main'));this.input.once('pointerdown',()=>this.scene.stop('DialogueScene')&&this.scene.resume('Main'));}
+        }
       }
 
       class ChoiceScene extends Phaser.Scene {
