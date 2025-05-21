@@ -215,7 +215,11 @@
         }
         drawSlots(panel,arr,src){const cols=4,rows=5;arr.forEach((it,i)=>{const cnt=it.count||1;const c=i%cols;const r=Math.floor(i/cols);if(r>=rows)return;const x=panel.x+10+c*48,y=panel.y+40+r*48;this.uiGroup.add(this.add.rectangle(x,y,44,44,0x444444).setOrigin(0));const icon=this.add.image(x+22,y+22,it.iconKey).setInteractive({draggable:true}).setData('source',src).setData('index',i);this.uiGroup.add(icon);if(cnt>1)this.uiGroup.add(this.add.text(x+32,y+32,cnt+'',{fontSize:'12px',fill:'#fff'}).setOrigin(1));});}
         onDragEnd(p,icon){const src=icon.getData('source');if(!src)return;const idx=icon.getData('index');const srcA=src==='player'?this.playerInv:this.chestInv;if(idx<0||idx>=srcA.length)return;const dstA=src==='player'?this.chestInv:this.playerInv;const dstP=src==='player'?this.rightPanel:this.leftPanel;const x=p.x,y=p.y; if(dstP.contains(x,y)){const item=srcA[idx];const ex=dstA.find(i=>i.iconKey===item.iconKey);if(ex)ex.count+=item.count||1;else if(dstA.length<20)dstA.push({iconKey:item.iconKey,count:item.count||1});srcA.splice(idx,1);}this.redraw();}
-        close(){this.scene.stop();this.scene.resume();}
+        close() {
+          // Stop this UI scene and resume main game scene
+          this.scene.stop('InventoryScene');
+          this.scene.resume('Main');
+        }
       }
 
       // Game config
