@@ -120,19 +120,12 @@
           });
           // NPC conversation handling delegated to NPCManager
           this.npcManager.enableConversations('F', npc => {
-            // Launch choice dialog with two options
-            this.openChoice(question, options) {
-          this.scene.pause();
-          this.scene.launch('ChoiceScene', { question, options });
-        }
-        update(time,delta) {
-          const dt=delta/1000, speed=3; let moved=false, dir=this.lastDir||'down';
-          let nx=this.playerIsoX, ny=this.playerIsoY; const {W,A,S,D}=this.keys;
-          if(W.isDown){ny-=speed*dt;dir='up';moved=true;this.player.play('walk-up',true);}else if(S.isDown){ny+=speed*dt;dir='down';moved=true;this.player.play('walk-down',true);}           
-          if(A.isDown){nx-=speed*dt;dir='left';moved=true;this.player.play('walk-left',true);}else if(D.isDown){nx+=speed*dt;dir='right';moved=true;this.player.play('walk-right',true);}          
-          const tx=Math.floor(nx), ty=Math.floor(ny);
-          if(nx>=0&&nx<this.mapW&&ny>=0&&ny<this.mapH&&this.floorData[ty][tx]&&!this.collisionData[ty][tx]){this.playerIsoX=nx;this.playerIsoY=ny;}
-          if(!moved){this.player.anims.stop();this.player.setFrame({down:0,left:12,right:24,up:36}[dir]);}
+            // Launch quest choice dialog with two options
+            this.openChoice(
+              "Will you accept this quest?",
+              ["Yes, I will accept this quest", "I have to think about it, I'll talk to you later"]
+            );
+          });}
           this.lastDir=dir;
           const sx=(this.playerIsoX-this.playerIsoY)*(this.tileW/2)+this.offsetX;
           const sy=(this.playerIsoX+this.playerIsoY)*(this.tileH/2)+this.offsetY;
