@@ -36,13 +36,13 @@
 
     window.addEventListener('load', () => {
       class BootScene extends Phaser.Scene {
-        constructor() { super('Boot'); }
-        create() { this.scene.start('Preload'); }
+        constructor(){ super('Boot'); }
+        create(){ this.scene.start('Preload'); }
       }
 
       class PreloadScene extends Phaser.Scene {
-        constructor() { super('Preload'); }
-        preload() {
+        constructor(){ super('Preload'); }
+        preload(){
           this.load.tilemapTiledJSON('room','assets/maps/room.json');
           this.load.spritesheet('tileset','assets/tiles/tileset.png',{ frameWidth:38,frameHeight:38 });
           this.load.spritesheet('player','assets/player/Chibi-character-template_skin0_part2_by_AxulArt.png',{ frameWidth:32,frameHeight:32 });
@@ -52,129 +52,129 @@
           this.load.image('sword','assets/icons/sword.png');
           this.load.image('coin','assets/icons/coin.png');
         }
-        create() { this.scene.start('Main'); }
+        create(){ this.scene.start('Main'); }
       }
 
       class MainScene extends Phaser.Scene {
-        constructor() { super('Main'); }
-        create() {
-          const map = this.make.tilemap({ key: 'room' });
-          map.addTilesetImage('tileset','tileset', map.tileWidth, map.tileHeight);
-          this.tileW = map.tileWidth; this.tileH = map.tileHeight;
-          this.mapW = map.width; this.mapH = map.height;
-          this.offsetX = this.scale.width/2;
-          this.offsetY = (this.scale.height - (this.mapW+this.mapH)*(this.tileH/2))/2 + this.tileH/2;
+        constructor(){ super('Main'); }
+        create(){
+          const map = this.make.tilemap({ key:'room' });
+          map.addTilesetImage('tileset','tileset',map.tileWidth,map.tileHeight);
+          this.tileW=map.tileWidth; this.tileH=map.tileHeight;
+          this.mapW=map.width; this.mapH=map.height;
+          this.offsetX=this.scale.width/2;
+          this.offsetY=(this.scale.height-(this.mapW+this.mapH)*(this.tileH/2))/2+this.tileH/2;
 
-          // Render floor
-          this.floorData = map.getLayer('Floor').data.map(r=>r.map(t=>t.index>0));
-          this.collisionData = map.getLayer('Collision').data.map(r=>r.map(t=>t.index>0));
-          map.getLayer('Floor').data.forEach((row,y)=>{
-            row.forEach((t,x)=>{
-              if (t.index>0) {
-                const frame = t.index-1;
-                const sx = (x-y)*(this.tileW/2)+this.offsetX;
-                const sy = (x+y)*(this.tileH/2)+this.offsetY;
-                this.add.image(sx,sy,'tileset',frame).setDepth(sy);
-              }
-            });
-          });
+          // Floor
+          this.floorData=map.getLayer('Floor').data.map(r=>r.map(t=>t.index>0));
+          this.collisionData=map.getLayer('Collision').data.map(r=>r.map(t=>t.index>0));
+          map.getLayer('Floor').data.forEach((row,y)=>row.forEach((t,x)=>{
+            if(t.index>0){
+              const frame=t.index-1;
+              const sx=(x-y)*(this.tileW/2)+this.offsetX;
+              const sy=(x+y)*(this.tileH/2)+this.offsetY;
+              this.add.image(sx,sy,'tileset',frame).setDepth(sy);
+            }
+          }));
 
-          // Load map objects
-          const objs = map.getObjectLayer('Objects').objects;
-          const spawn = objs.find(o=>o.name==='PlayerSpawn');
-
-          // Initialize inventories & chests
-          this.playerInv = [];
-          this.chests = [];
+          // Objects
+          const objs=map.getObjectLayer('Objects').objects;
+          const spawn=objs.find(o=>o.name==='PlayerSpawn');
+          this.playerInv=[];
+          this.chests=[];
           objs.forEach(o=>{
-            const ix = o.x/this.tileW, iy = o.y/this.tileH;
-            const sx = (ix-iy)*(this.tileW/2)+this.offsetX;
-            const sy = (ix+iy)*(this.tileH/2)+this.offsetY;
-            if (o.type==='Chest') {
-              const chest = this.add.image(sx,sy,'chest').setOrigin(0.5,1).setDepth(sy).setInteractive();
-              chest.inventory = [];
-              chest.on('pointerdown', () => this.openInventory(this.playerInv, chest.inventory));
+            const ix=o.x/this.tileW, iy=o.y/this.tileH;
+            const sx=(ix-iy)*(this.tileW/2)+this.offsetX;
+            const sy=(ix+iy)*(this.tileH/2)+this.offsetY;
+            if(o.type==='Chest'){
+              const chest=this.add.image(sx,sy,'chest').setOrigin(0.5,1).setDepth(sy).setInteractive();
+              chest.inventory=[];
+              chest.on('pointerdown',()=>this.openInventory(this.playerInv,chest.inventory));
               this.chests.push(chest);
             }
           });
 
-          // Set up player
-          this.player = this.add.sprite(0,0,'player').setOrigin(0.5,1);
+          // Player
+          this.player=this.add.sprite(0,0,'player').setOrigin(0.5,1);
           this.createPlayerAnims();
-          this.playerIsoX = spawn.x/this.tileW;
-          this.playerIsoY = spawn.y/this.tileH;
-          const px = (this.playerIsoX - this.playerIsoY)*(this.tileW/2)+this.offsetX;
-          const py = (this.playerIsoX + this.playerIsoY)*(this.tileH/2)+this.offsetY;
+          this.playerIsoX=spawn.x/this.tileW; this.playerIsoY=spawn.y/this.tileH;
+          const px=(this.playerIsoX-this.playerIsoY)*(this.tileW/2)+this.offsetX;
+          const py=(this.playerIsoX+this.playerIsoY)*(this.tileH/2)+this.offsetY;
           this.player.setPosition(px,py).setDepth(py);
 
-          this.keys = this.input.keyboard.addKeys('W,A,S,D');
+          this.keys=this.input.keyboard.addKeys('W,A,S,D');
           this.cameras.main.setBounds(0,0,map.widthInPixels,map.heightInPixels);
           this.cameras.main.startFollow(this.player,true,0.1,0.1);
 
-          // Initialize managers
-          this.npcManager = new NPCManager(this);
+          // Managers
+          this.npcManager=new NPCManager(this);
           this.npcManager.createFromObjects(objs);
-          this.questManager = new QuestManager(this);
+          this.questManager=new QuestManager(this);
 
-          // NPC interactions
-          this.npcManager.enableConversations('F', npc => {
-            const quest = this.questManager.getQuestFor(npc.id);
-            if (quest) {
+          // NPC conversation & quests
+          this.npcManager.enableConversations('F',npc=>{
+            const quest=this.questManager.getQuestFor(npc.id);
+            if(quest){
               this.openChoice(
                 quest.prompt,
-                [quest.acceptText, quest.declineText],
-                choice => {
-                  if (choice === 0) this.questManager.accept(quest.id);
-                }
+                [quest.acceptText,quest.declineText],
+                choice=>{ if(choice===0) this.questManager.accept(quest.id); }
               );
             }
           });
 
-          // Inventory toggle
-          this.events.on('inventoryClosed', data => { this.playerInv = data.playerInv; this.scene.resume(); });
-          this.input.keyboard.on('keydown-I', () => this.openInventory(this.playerInv, []));
-          this.input.keyboard.on('keydown-E', () => {
-            const { x, y } = this.player;
-            this.chests.forEach(ch => {
-              if (Phaser.Math.Distance.Between(x,y,ch.x,ch.y) < 50) this.openInventory(this.playerInv,ch.inventory);
+          // Inventory
+          this.events.on('inventoryClosed',data=>{this.playerInv=data.playerInv;this.scene.resume();});
+          this.input.keyboard.on('keydown-I',()=>this.openInventory(this.playerInv,[]));
+          this.input.keyboard.on('keydown-E',()=>{
+            const {x,y}=this.player;
+            this.chests.forEach(ch=>{
+              if(Phaser.Math.Distance.Between(x,y,ch.x,ch.y)<50) this.openInventory(this.playerInv,ch.inventory);
             });
           });
         }
-        openInventory(playerInv,chestInv) { this.scene.pause(); this.scene.launch('InventoryScene',{playerInv,chestInv}); }
-        closeInventory() { this.scene.stop('InventoryScene'); this.scene.resume(); }
-        openChoice(question, options, callback) {
-          this.scene.pause();
-          this.scene.launch('ChoiceScene',{ question, options, callback });
-        }
-        update(time, delta) {
-          const dt = delta/1000, sp=3; let moved=false, dir=this.lastDir||'down';
-          let nx=this.playerIsoX, ny=this.playerIsoY; const {W,A,S,D}=this.keys;
-          if(W.isDown){ ny-=sp*dt; dir='up'; moved=true; this.player.play('walk-up',true);} else if(S.isDown){ ny+=sp*dt; dir='down'; moved=true; this.player.play('walk-down',true); }
-          if(A.isDown){ nx-=sp*dt; dir='left'; moved=true; this.player.play('walk-left',true);} else if(D.isDown){ nx+=sp*dt; dir='right'; moved=true; this.player.play('walk-right',true);}         
-          const tx=Math.floor(nx), ty=Math.floor(ny);
-          if(nx>=0&&nx<this.mapW&&ny>=0&&ny<this.mapH&&this.floorData[ty][tx]&&!this.collisionData[ty][tx]){ this.playerIsoX=nx; this.playerIsoY=ny; }
-          if(!moved){ this.player.anims.stop(); this.player.setFrame({down:0,left:12,right:24,up:36}[dir]); }
+        openInventory(playerInv,chestInv){this.scene.pause();this.scene.launch('InventoryScene',{playerInv,chestInv});}
+        closeInventory(){this.scene.stop('InventoryScene');this.scene.resume();}
+        openChoice(question,options,callback){this.scene.pause();this.scene.launch('ChoiceScene',{question,options,callback});}
+        update(time,delta){
+          const dt=delta/1000,spd=3;let moved=false,dir=this.lastDir||'down';
+          let nx=this.playerIsoX,ny=this.playerIsoY;const{W,A,S,D}=this.keys;
+          if(W.isDown){ny-=spd*dt;dir='up';moved=true;this.player.play('walk-up',true);}else if(S.isDown){ny+=spd*dt;dir='down';moved=true;this.player.play('walk-down',true);}   
+          if(A.isDown){nx-=spd*dt;dir='left';moved=true;this.player.play('walk-left',true);}else if(D.isDown){nx+=spd*dt;dir='right';moved=true;this.player.play('walk-right',true);}  
+          const tx=Math.floor(nx),ty=Math.floor(ny);
+          if(nx>=0&&nx<this.mapW&&ny>=0&&ny<this.mapH&&this.floorData[ty][tx]&&!this.collisionData[ty][tx]){this.playerIsoX=nx;this.playerIsoY=ny;}
+          if(!moved){this.player.anims.stop();this.player.setFrame({down:0,left:12,right:24,up:36}[dir]);}
           this.lastDir=dir;
-          const sx=(this.playerIsoX - this.playerIsoY)*(this.tileW/2)+this.offsetX;
-          const sy=(this.playerIsoX + this.playerIsoY)*(this.tileH/2)+this.offsetY;
+          const sx=(this.playerIsoX-this.playerIsoY)*(this.tileW/2)+this.offsetX;
+          const sy=(this.playerIsoX+this.playerIsoY)*(this.tileH/2)+this.offsetY;
           this.player.setPosition(sx,sy).setDepth(sy);
         }
-        createPlayerAnims(){ [['down',0,3],['left',12,15],['right',24,27],['up',36,39],['down-left',48,51],['down-right',60,63],['up-left',72,75],['up-right',84,87]].forEach(([k,s,e])=>{
-          this.anims.create({ key:`walk-${k}`, frames:this.anims.generateFrameNumbers('player',{start:s,end:e}), frameRate:8, repeat:-1 }); }); }
+        createPlayerAnims(){[['down',0,3],['left',12,15],['right',24,27],['up',36,39],['down-left',48,51],['down-right',60,63],['up-left',72,75],['up-right',84,87]].forEach(([k,s,e])=>{this.anims.create({key:`walk-${k}`,frames:this.anims.generateFrameNumbers('player',{start:s,end:e}),frameRate:8,repeat:-1});});}
       }
 
-      // Other scenes (DialogueScene, ChoiceScene, InventoryScene) remain unchanged...
-      class DialogueScene extends Phaser.Scene { /* ... */ }
-      class ChoiceScene extends Phaser.Scene { /* ... */ }
-      class InventoryScene extends Phaser.Scene { /* ... */ }
+      class DialogueScene extends Phaser.Scene {
+        constructor(){super('DialogueScene');}
+        init(data){this.lines=data.lines||[];}
+        create(){const w=this.scale.width,h=this.scale.height;this.add.graphics().fillStyle(0x000000,0.7).fillRect(w/4,h/4,w/2,h/4);this.lines.forEach((l,i)=>this.add.text(w/4+20,h/4+20+i*24,l,{fontSize:'18px',fill:'#fff'}));this.input.keyboard.once('keydown-ESC',()=>this.scene.stop('DialogueScene')&&this.scene.resume('Main'));this.input.once('pointerdown',()=>this.scene.stop('DialogueScene')&&this.scene.resume('Main'));}
+      }
 
-      const config = {
-        type: Phaser.AUTO,
-        parent: 'game-container',
-        scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
-        physics: { default: 'arcade' },
-        scene: [BootScene, PreloadScene, MainScene, DialogueScene, ChoiceScene, InventoryScene]
-      };
+      class ChoiceScene extends Phaser.Scene {
+        constructor(){super('ChoiceScene');}
+        init(data){this.question=data.question;this.options=data.options||[];this.callback=data.callback;}
+        create(){const w=this.scale.width,h=this.scale.height;this.add.graphics().fillStyle(0x000000,0.7).fillRect(w/4,h/4,w/2,h/4);this.add.text(w/4+20,h/4+20,this.question,{fontSize:'18px',fill:'#fff'});this.options.forEach((opt,idx)=>{const txt=this.add.text(w/4+40,h/4+60+idx*30,opt,{fontSize:'16px',fill:'#ff0'}).setInteractive();txt.on('pointerdown',()=>{if(this.callback) this.callback(idx);this.scene.stop('ChoiceScene');this.scene.resume('Main');});});}
+      }
+
+      class InventoryScene extends Phaser.Scene {
+        constructor(){super('InventoryScene');}
+        init(data){this.playerInv=data.playerInv;this.chestInv=data.chestInv||[];this.showChest=this.chestInv.length>0;}
+        create(){const w=this.scale.width;this.pw=200;this.ph=300;this.leftPanel=new Phaser.Geom.Rectangle(50,50,this.pw,this.ph);if(this.showChest) this.rightPanel=new Phaser.Geom.Rectangle(w-50-this.pw,50,this.pw,this.ph);this.uiGroup=this.add.group();this.leftZone=this.add.zone(this.leftPanel.x,this.leftPanel.y,this.pw,20).setOrigin(0).setInteractive();if(this.showChest){this.rightZone=this.add.zone(this.rightPanel.x,this.rightPanel.y,this.pw,20).setOrigin(0).setInteractive();this.input.setDraggable([this.leftZone,this.rightZone]);}else this.input.setDraggable([this.leftZone]);this.input.on('drag',(p,obj,dx,dy)=>{if(obj===this.leftZone){this.leftPanel.x=dx;this.leftZone.x=dx;this.leftPanel.y=dy;this.leftZone.y=dy;this.redraw();}else if(this.showChest&&obj===this.rightZone){this.rightPanel.x=dx;this.rightZone.x=dx;this.rightPanel.y=dy;this.rightZone.y=dy;this.redraw();}else{obj.x=dx;obj.y=dy;}});this.input.on('dragend',this.onDragEnd,this);this.input.keyboard.on('keydown-ESC',()=>this.close());this.input.keyboard.on('keydown-I',()=>this.close());this.redraw();}
+        redraw(){this.uiGroup.clear(true,true);const g=this.add.graphics().fillStyle(0x222222,0.8);g.fillRectShape(this.leftPanel);if(this.showChest) g.fillRectShape(this.rightPanel);g.fillStyle(0x333333,1).fillRect(this.leftPanel.x,this.leftPanel.y,this.pw,20);if(this.showChest) g.fillRect(this.rightPanel.x,this.rightPanel.y,this.pw,20);this.uiGroup.add(g);this.uiGroup.add(this.add.text(this.leftPanel.x+10,this.leftPanel.y+4,'Inventory',{fontSize:'16px',fill:'#fff'}).setDepth(1));if(this.showChest) this.uiGroup.add(this.add.text(this.rightPanel.x+10,this.rightPanel.y+4,'Chest',{fontSize:'16px',fill:'#fff'}).setDepth(1));this.drawSlots(this.leftPanel,this.playerInv,'player');if(this.showChest) this.drawSlots(this.rightPanel,this.chestInv,'chest');}
+        drawSlots(panel,arr,src){const cols=4,rows=5;arr.forEach((it,i)=>{const cnt=it.count||1,c=i%cols,r=Math.floor(i/cols);if(r>=rows)return;const x=panel.x+10+c*48,y=panel.y+40+r*48;this.uiGroup.add(this.add.rectangle(x,y,44,44,0x444444).setOrigin(0));const icon=this.add.image(x+22,y+22,it.iconKey).setInteractive({draggable:true}).setData('source',src).setData('index',i);this.uiGroup.add(icon);if(cnt>1)this.uiGroup.add(this.add.text(x+32,y+32,cnt+'',{fontSize:'12px',fill:'#fff'}).setOrigin(1));});}
+        onDragEnd(p,icon){const src=icon.getData('source');if(!src)return;const idx=icon.getData('index');const srcA=src==='player'?this.playerInv:this.chestInv;if(idx<0||idx>=srcA.length)return;const dstA=src==='player'?this.chestInv:this.playerInv;const dstP=src==='player'?this.rightPanel:this.leftPanel;const x=p.x,y=p.y;if(dstP.contains(x,y)){const item=srcA[idx];const ex=dstA.find(i=>i.iconKey===item.iconKey);if(ex)ex.count+=item.count||1;else if(dstA.length<20)dstA.push({iconKey:item.iconKey,count:item.count||1});srcA.splice(idx,1);}this.redraw();}
+        close(){this.scene.stop('InventoryScene');this.scene.resume('Main');}
+      }
+
+      const config={type:Phaser.AUTO,parent:'game-container',scale:{mode:Phaser.Scale.FIT,autoCenter:Phaser.Scale.CENTER_BOTH},physics:{default:'arcade'},scene:[BootScene,PreloadScene,MainScene,DialogueScene,ChoiceScene,InventoryScene]};
       new Phaser.Game(config);
     });
   </script>
