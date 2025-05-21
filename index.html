@@ -222,24 +222,7 @@
           this.input.keyboard.on('keydown-I',()=>this.close());
 
           this.redraw();
-        }(){
-          const w=this.scale.width;
-          this.pw=200; this.ph=300;
-          this.leftPanel=new Phaser.Geom.Rectangle(50,50,this.pw,this.ph);
-          this.rightPanel=new Phaser.Geom.Rectangle(w-50-this.pw,50,this.pw,this.ph);
-          this.uiGroup=this.add.group();
-
-          // Title zones
-          this.leftZone=this.add.zone(this.leftPanel.x,this.leftPanel.y,this.pw,20).setOrigin(0).setInteractive();
-          this.rightZone=this.add.zone(this.rightPanel.x,this.rightPanel.y,this.pw,20).setOrigin(0).setInteractive();
-          this.input.setDraggable([this.leftZone,this.rightZone]);
-
-          // Drag events
-          this.input.on('drag',(p,obj,dx,dy)=>{
-            if (obj===this.leftZone) {
-              this.leftPanel.x=dx; this.leftZone.x=dx; this.leftPanel.y=dy; this.leftZone.y=dy;
-              this.redraw();
-            } else if (obj===this.rightZone) {
+         else if (obj===this.rightZone) {
               this.rightPanel.x=dx; this.rightZone.x=dx; this.rightPanel.y=dy; this.rightZone.y=dy;
               this.redraw();
             } else {
