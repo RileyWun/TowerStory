@@ -5,13 +5,21 @@
   <title>TowerStory</title>
   <style>
     html, body { height:100%; width:100%; margin:0; padding:0; background: url('assets/images/background.png') center/cover no-repeat; }
-    body { display:grid; grid-template-rows:80px auto 60px; grid-template-columns:200px auto 200px; grid-template-areas:"header header header" "sidebar-left main sidebar-right" "footer footer footer"; }
+    body {
+      display:grid;
+      grid-template-rows:80px auto 60px;
+      grid-template-columns:200px auto 200px;
+      grid-template-areas:
+        "header header header"
+        "sidebar-left main sidebar-right"
+        "footer footer footer";
+    }
     #header { grid-area: header; }
     #sidebar-left { grid-area: sidebar-left; }
-    #game-container { grid-area: main; position:relative; width:100%; height:100%; overflow:hidden; }
+    #game-container { grid-area: main; position: relative; width: 100%; height: 100%; overflow:hidden; }
     #sidebar-right { grid-area: sidebar-right; }
     #footer { grid-area: footer; }
-    #game-container canvas { display:block; margin:auto; }
+    #game-container canvas { display: block; margin: auto; }
   </style>
 </head>
 <body>
@@ -22,25 +30,21 @@
   <div id="footer"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.min.js"></script>
-  <script type="module" src="assets/js/npc-manager.js"></script>
-  <script type="module">
-    import { NPCManager } from './assets/js/npc-manager.js';
+  <script>
     window.addEventListener('load', () => {
-      // Boot Scene
       class BootScene extends Phaser.Scene {
         constructor() { super('Boot'); }
         create() { this.scene.start('Preload'); }
       }
 
-      // Preload Scene
       class PreloadScene extends Phaser.Scene {
         constructor() { super('Preload'); }
         preload() {
-          this.load.tilemapTiledJSON('room', 'assets/maps/room.json');
-          this.load.spritesheet('tileset', 'assets/tiles/tileset.png', { frameWidth:38, frameHeight:38 });
-          this.load.spritesheet('player', 'assets/player/Chibi-character-template_skin0_part2_by_AxulArt.png', { frameWidth:32, frameHeight:32 });
-          this.load.image('chest', 'assets/objects/chest.png');
-          this.load.image('npc', 'assets/objects/npc.png');
+          this.load.tilemapTiledJSON('room','assets/maps/room.json');
+          this.load.spritesheet('tileset','assets/tiles/tileset.png',{ frameWidth:38,frameHeight:38 });
+          this.load.spritesheet('player','assets/player/Chibi-character-template_skin0_part2_by_AxulArt.png',{ frameWidth:32,frameHeight:32 });
+          this.load.image('chest','assets/objects/chest.png');
+          this.load.image('npc','assets/objects/npc.png');
           this.load.image('potion','assets/icons/potion.png');
           this.load.image('sword','assets/icons/sword.png');
           this.load.image('coin','assets/icons/coin.png');
@@ -48,56 +52,51 @@
         create() { this.scene.start('Main'); }
       }
 
-      // Main Scene
       class MainScene extends Phaser.Scene {
         constructor() { super('Main'); }
         create() {
-          const map = this.make.tilemap({ key:'room' });
-          map.addTilesetImage('tileset','tileset', map.tileWidth, map.tileHeight);
+          const map = this.make.tilemap({ key: 'room' });
+          const tileset = map.addTilesetImage('tileset','tileset', map.tileWidth, map.tileHeight);
           this.tileW = map.tileWidth; this.tileH = map.tileHeight;
           this.mapW = map.width; this.mapH = map.height;
           this.offsetX = this.scale.width/2;
-          this.offsetY = (this.scale.height - (this.mapW + this.mapH)*(this.tileH/2))/2 + this.tileH/2;
+          this.offsetY = (this.scale.height - (this.mapW+this.mapH)*(this.tileH/2))/2 + this.tileH/2;
 
-          // floor data
-          this.floorData = map.getLayer('Floor').data.map(row=>row.map(t=>t.index>0));
-          this.collisionData = map.getLayer('Collision').data.map(row=>row.map(t=>t.index>0));
-          map.getLayer('Floor').data.forEach((row,y) => row.forEach((t,x) => {
-            if(t.index>0) {
-              const frame = t.index-1;
-              const sx = (x-y)*(this.tileW/2)+this.offsetX;
-              const sy = (x+y)*(this.tileH/2)+this.offsetY;
-              this.add.image(sx,sy,'tileset',frame).setDepth(sy);
-            }
-          }));
+          // Render floor
+          this.floorData = map.getLayer('Floor').data.map(r=>r.map(t=>t.index>0));
+          this.collisionData = map.getLayer('Collision').data.map(r=>r.map(t=>t.index>0));
+          map.getLayer('Floor').data.forEach((row,y)=>{
+            row.forEach((t,x)=>{
+              if (t.index>0) {
+                const frame = t.index-1;
+                const sx = (x-y)*(this.tileW/2)+this.offsetX;
+                const sy = (x+y)*(this.tileH/2)+this.offsetY;
+                this.add.image(sx,sy,'tileset',frame).setDepth(sy);
+              }
+            });
+          });
 
-          // objects
+          // Objects and chests
           const objs = map.getObjectLayer('Objects').objects;
           const spawn = objs.find(o=>o.name==='PlayerSpawn');
-          this.playerInv = [{iconKey:'potion',count:3},{iconKey:'sword',count:1}];
+          this.playerInv = [{ iconKey:'potion',count:3},{ iconKey:'sword',count:1 }];
           this.chests = [];
-          // Initialize NPC manager
-          this.npcManager = new NPCManager(this);
-          this.npcManager.createFromObjects(objs);
-          
           objs.forEach(o=>{
             const ix=o.x/this.tileW, iy=o.y/this.tileH;
             const sx=(ix-iy)*(this.tileW/2)+this.offsetX;
             const sy=(ix+iy)*(this.tileH/2)+this.offsetY;
-            if(o.type==='Chest') {
+            if (o.type==='Chest') {
               const chest = this.add.image(sx,sy,'chest').setOrigin(0.5,1).setDepth(sy).setInteractive();
-              chest.inventory = [{iconKey:'coin',count:2},{iconKey:'potion',count:1}];
+              chest.inventory = [{ iconKey:'coin',count:2},{ iconKey:'potion',count:1 }];
               chest.on('pointerdown', () => this.openInventory(this.playerInv, chest.inventory));
               this.chests.push(chest);
             }
           });
-            
 
-          // player
+          // Player
           this.player = this.add.sprite(0,0,'player').setOrigin(0.5,1);
           this.createPlayerAnims();
-          this.playerIsoX = spawn.x/this.tileW;
-          this.playerIsoY = spawn.y/this.tileH;
+          this.playerIsoX = spawn.x/this.tileW; this.playerIsoY = spawn.y/this.tileH;
           const px = (this.playerIsoX - this.playerIsoY)*(this.tileW/2)+this.offsetX;
           const py = (this.playerIsoX + this.playerIsoY)*(this.tileH/2)+this.offsetY;
           this.player.setPosition(px,py).setDepth(py);
@@ -106,81 +105,38 @@
           this.cameras.main.setBounds(0,0,map.widthInPixels,map.heightInPixels);
           this.cameras.main.startFollow(this.player,true,0.1,0.1);
 
-          // inventory toggle
-          this.events.on('inventoryClosed',data=>{this.playerInv=data.playerInv; this.scene.resume();});
-          this.input.keyboard.on('keydown-I',()=>{
-            if(this.scene.isActive('InventoryScene')) this.closeInventory();
-            else this.openInventory(this.playerInv,[]);
+          // Inventory toggle
+          this.events.on('inventoryClosed', data => { this.playerInv = data.playerInv; this.scene.resume(); });
+          this.input.keyboard.on('keydown-I', () => {
+            if (this.scene.isActive('InventoryScene')) this.closeInventory();
+            else this.openInventory(this.playerInv, []);
           });
-          this.input.keyboard.on('keydown-E',()=>{
-            const {x,y}=this.player;
-            this.chests.forEach(ch=>{
-              if(Phaser.Math.Distance.Between(x,y,ch.x,ch.y)<50) this.openInventory(this.playerInv,ch.inventory);
+          this.input.keyboard.on('keydown-E', () => {
+            const { x, y } = this.player;
+            this.chests.forEach(ch => {
+              if (Phaser.Math.Distance.Between(x,y,ch.x,ch.y) < 50) this.openInventory(this.playerInv, ch.inventory);
             });
           });
-          // NPC conversation handling delegated to NPCManager
-          this.npcManager.enableConversations('F', npc => {
-            // Launch quest choice dialog with two options
-            this.openChoice(
-              "Will you accept this quest?",
-              ["Yes, I will accept this quest", "I have to think about it, I'll talk to you later"]
-            );
-          });}
+        }
+        openInventory(playerInv, chestInv) { this.scene.pause(); this.scene.launch('InventoryScene',{playerInv,chestInv}); }
+        closeInventory() { this.scene.stop('InventoryScene'); this.scene.resume(); }
+        update(time, delta) {
+          const dt = delta/1000, sp=3; let moved=false, dir=this.lastDir||'down';
+          let nx=this.playerIsoX, ny=this.playerIsoY; const {W,A,S,D}=this.keys;
+          if(W.isDown){ ny-=sp*dt; dir='up'; moved=true; this.player.play('walk-up',true);}else if(S.isDown){ ny+=sp*dt; dir='down'; moved=true; this.player.play('walk-down',true); }
+          if(A.isDown){ nx-=sp*dt; dir='left'; moved=true; this.player.play('walk-left',true);}else if(D.isDown){ nx+=sp*dt;dir='right';moved=true;this.player.play('walk-right',true);}
+          const tx=Math.floor(nx), ty=Math.floor(ny);
+          if(nx>=0&&nx<this.mapW&&ny>=0&&ny<this.mapH&&this.floorData[ty][tx]&&!this.collisionData[ty][tx]){ this.playerIsoX=nx; this.playerIsoY=ny; }
+          if(!moved){ this.player.anims.stop(); this.player.setFrame({down:0,left:12,right:24,up:36}[dir]); }
           this.lastDir=dir;
           const sx=(this.playerIsoX-this.playerIsoY)*(this.tileW/2)+this.offsetX;
           const sy=(this.playerIsoX+this.playerIsoY)*(this.tileH/2)+this.offsetY;
           this.player.setPosition(sx,sy).setDepth(sy);
         }
-        createPlayerAnims() {
-          [['down',0,3],['left',12,15],['right',24,27],['up',36,39],['down-left',48,51],['down-right',60,63],['up-left',72,75],['up-right',84,87]].forEach(([k,s,e])=>{
-            this.anims.create({key:`walk-${k}`,frames:this.anims.generateFrameNumbers('player',{start:s,end:e}),frameRate:8,repeat:-1});
-          });
-        }
+        createPlayerAnims(){ [['down',0,3],['left',12,15],['right',24,27],['up',36,39],['down-left',48,51],['down-right',60,63],['up-left',72,75],['up-right',84,87]].forEach(([k,s,e])=>{
+          this.anims.create({key:`walk-${k}`,frames:this.anims.generateFrameNumbers('player',{start:s,end:e}),frameRate:8,repeat:-1}); }); }
       }
 
-      // Dialogue Scene
-      class DialogueScene extends Phaser.Scene {
-        constructor(){ super('DialogueScene'); }
-        init(data){ this.lines=data.lines||[]; }
-        create(){
-          const w=this.scale.width, h=this.scale.height;
-          this.add.graphics().fillStyle(0x000000,0.7).fillRect(w/4,h/4,w/2,h/4);
-          this.lines.forEach((l,i)=> this.add.text(w/4+20,h/4+20+i*24,l,{fontSize:'18px',fill:'#fff'}));
-          this.input.keyboard.once('keydown-ESC',()=>this.closeDialogue());
-          this.input.once('pointerdown',()=>this.closeDialogue());
-        }
-        closeDialogue(){ this.scene.stop('DialogueScene'); this.scene.resume('Main'); }
-      }
-
-      // Choice Scene for NPC dialogues
-      class ChoiceScene extends Phaser.Scene {
-        constructor(){ super('ChoiceScene'); }
-        init(data) {
-          this.question = data.question;
-          this.options  = data.options || [];
-        }
-        create() {
-          const w = this.scale.width, h = this.scale.height;
-          // Background box
-          this.add.graphics().fillStyle(0x000000,0.7).fillRect(w/4, h/4, w/2, h/4);
-          // Question text
-          this.add.text(w/4 + 20, h/4 + 20, this.question, { fontSize: '18px', fill: '#fff' });
-          // Option texts
-          this.options.forEach((opt, idx) => {
-            const txt = this.add.text(w/4 + 40, h/4 + 60 + idx*30, opt, { fontSize: '16px', fill: '#ff0' })
-              .setInteractive();
-            txt.on('pointerdown', () => this.select(idx));
-          });
-        }
-        select(choiceIndex) {
-          // You can dispatch events or callbacks here based on choiceIndex
-          console.log('Player selected option', choiceIndex);
-          this.scene.stop('ChoiceScene');
-          this.scene.resume('Main');
-        }
-      }
-
-      // Inventory Scene
       class InventoryScene extends Phaser.Scene {
         constructor(){ super('InventoryScene'); }
         init(data){ this.playerInv=data.playerInv; this.chestInv=data.chestInv||[]; this.showChest=this.chestInv.length>0; }
@@ -190,27 +146,25 @@
           if(this.showChest) this.rightPanel=new Phaser.Geom.Rectangle(w-50-this.pw,50,this.pw,this.ph);
           this.uiGroup=this.add.group();
           this.leftZone=this.add.zone(this.leftPanel.x,this.leftPanel.y,this.pw,20).setOrigin(0).setInteractive();
-          if(this.showChest){this.rightZone=this.add.zone(this.rightPanel.x,this.rightPanel.y,this.pw,20).setOrigin(0).setInteractive();this.input.setDraggable([this.leftZone,this.rightZone]);}else this.input.setDraggable([this.leftZone]);
-          this.input.on('drag',(p,obj,dx,dy)=>{if(obj===this.leftZone){this.leftPanel.x=dx;this.leftZone.x=dx;this.leftPanel.y=dy;this.leftZone.y=dy;this.redraw();}else if(this.showChest&&obj===this.rightZone){this.rightPanel.x=dx;this.rightZone.x=dx;this.rightPanel.y=dy;this.rightZone.y=dy;this.redraw();}else{obj.x=dx;obj.y=dy;}});
-          this.input.on('dragend',this.onDragEnd,this);
+          if(this.showChest) { this.rightZone=this.add.zone(this.rightPanel.x,this.rightPanel.y,this.pw,20).setOrigin(0).setInteractive(); this.input.setDraggable([this.leftZone,this.rightZone]); }
+          else this.input.setDraggable([this.leftZone]);
+          this.input.on('drag',(p,obj,dx,dy)=>{
+            if(obj===this.leftZone){ this.leftPanel.x=dx; this.leftZone.x=dx; this.leftPanel.y=dy; this.leftZone.y=dy; this.redraw(); }
+            else if(this.showChest && obj===this.rightZone){ this.rightPanel.x=dx; this.rightZone.x=dx; this.rightPanel.y=dy; this.rightZone.y=dy; this.redraw(); }
+            else{ obj.x=dx; obj.y=dy; }
+          });
+          this.input.on('dragend', this.onDragEnd, this);
           this.input.keyboard.on('keydown-ESC',()=>this.close());
           this.input.keyboard.on('keydown-I',()=>this.close());
           this.redraw();
         }
-        redraw(){this.uiGroup.clear(true,true);const g=this.add.graphics().fillStyle(0x222222,0.8);g.fillRectShape(this.leftPanel);if(this.showChest)g.fillRectShape(this.rightPanel);g.fillStyle(0x333333,1).fillRect(this.leftPanel.x,this.leftPanel.y,this.pw,20);if(this.showChest)g.fillRect(this.rightPanel.x,this.rightPanel.y,this.pw,20);this.uiGroup.add(g);this.uiGroup.add(this.add.text(this.leftPanel.x+10,this.leftPanel.y+4,'Inventory',{fontSize:'16px',fill:'#fff'}).setDepth(1));if(this.showChest)this.uiGroup.add(this.add.text(this.rightPanel.x+10,this.rightPanel.y+4,'Chest',{fontSize:'16px',fill:'#fff'}).setDepth(1));this.drawSlots(this.leftPanel,this.playerInv,'player');if(this.showChest)this.drawSlots(this.rightPanel,this.chestInv,'chest');}
-        drawSlots(panel,arr,src){const cols=4,rows=5;arr.forEach((it,i)=>{const cnt=it.count||1;const c=i%cols;const r=Math.floor(i/cols);if(r>=rows)return;const x=panel.x+10+c*48,y=panel.y+40+r*48;this.uiGroup.add(this.add.rectangle(x,y,44,44,0x444444).setOrigin(0));const icon=this.add.image(x+22,y+22,it.iconKey).setInteractive({draggable:true}).setData('source',src).setData('index',i);this.uiGroup.add(icon);if(cnt>1)this.uiGroup.add(this.add.text(x+32,y+32,cnt+'',{fontSize:'12px',fill:'#fff'}).setOrigin(1));});}
-        onDragEnd(p,icon){const src=icon.getData('source');if(!src)return;const idx=icon.getData('index');const srcA=src==='player'?this.playerInv:this.chestInv;if(idx<0||idx>=srcA.length)return;const dstA=src==='player'?this.chestInv:this.playerInv;const dstP=src==='player'?this.rightPanel:this.leftPanel;const x=p.x,y=p.y;if(dstP.contains(x,y)){const item=srcA[idx];const ex=dstA.find(i=>i.iconKey===item.iconKey);if(ex)ex.count+=item.count||1;else if(dstA.length<20)dstA.push({iconKey:item.iconKey,count:item.count||1});srcA.splice(idx,1);}this.redraw();}
-        close(){this.scene.stop('InventoryScene');this.scene.resume('Main');}
+        redraw(){ this.uiGroup.clear(true,true); const g=this.add.graphics().fillStyle(0x222222,0.8); g.fillRectShape(this.leftPanel); if(this.showChest) g.fillRectShape(this.rightPanel); g.fillStyle(0x333333,1).fillRect(this.leftPanel.x,this.leftPanel.y,this.pw,20); if(this.showChest) g.fillRect(this.rightPanel.x,this.rightPanel.y,this.pw,20); this.uiGroup.add(g); this.uiGroup.add(this.add.text(this.leftPanel.x+10,this.leftPanel.y+4,'Inventory',{fontSize:'16px',fill:'#fff'}).setDepth(1)); if(this.showChest) this.uiGroup.add(this.add.text(this.rightPanel.x+10,this.rightPanel.y+4,'Chest',{fontSize:'16px',fill:'#fff'}).setDepth(1)); this.drawSlots(this.leftPanel,this.playerInv,'player'); if(this.showChest) this.drawSlots(this.rightPanel,this.chestInv,'chest'); }
+        drawSlots(panel,arr,src){ const cols=4,rows=5; arr.forEach((it,i)=>{ const cnt=it.count||1, c=i%cols, r=Math.floor(i/cols); if(r>=rows) return; const x=panel.x+10+c*48, y=panel.y+40+r*48; this.uiGroup.add(this.add.rectangle(x,y,44,44,0x444444).setOrigin(0)); const icon=this.add.image(x+22,y+22,it.iconKey).setInteractive({draggable:true}).setData('source',src).setData('index',i); this.uiGroup.add(icon); if(cnt>1) this.uiGroup.add(this.add.text(x+32,y+32,cnt+'',{fontSize:'12px',fill:'#fff'}).setOrigin(1)); }); }
+        onDragEnd(p,icon){ const src=icon.getData('source'); if(!src) return; const idx=icon.getData('index'); const srcA=src==='player'?this.playerInv:this.chestInv; if(idx<0||idx>=srcA.length) return; const dstA=src==='player'?this.chestInv:this.playerInv; const dstP=src==='player'?this.rightPanel:this.leftPanel; const x=p.x,y=p.y; if(dstP.contains(x,y)){ const item=srcA[idx]; const ex=dstA.find(i=>i.iconKey===item.iconKey); if(ex) ex.count+=item.count||1; else if(dstA.length<20) dstA.push({iconKey:item.iconKey,count:item.count||1}); srcA.splice(idx,1); } this.redraw(); }
+        close(){ this.scene.stop('InventoryScene'); this.scene.resume('Main'); }
       }
 
-      // Game config
-      const config = {
-        type: Phaser.AUTO,
-        parent: 'game-container',
-        scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
-        physics: { default: 'arcade' },
-        scene: [BootScene, PreloadScene, MainScene, DialogueScene, ChoiceScene, InventoryScene]
-      };
+      const config={ type: Phaser.AUTO, parent:'game-container', scale:{mode:Phaser.Scale.FIT,autoCenter:Phaser.Scale.CENTER_BOTH}, physics:{default:'arcade'}, scene:[BootScene,PreloadScene,MainScene,InventoryScene] };
       new Phaser.Game(config);
     });
   </script>
