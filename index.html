@@ -128,77 +128,122 @@
         }
       }
 
-      // Inventory UI with frame, title and drag-and-drop
+      // Inventory UI with frame, title, drag-and-drop, stacking, slot limits
       class InventoryScene extends Phaser.Scene {
-        constructor(){super('InventoryScene');}
-        init(data){ this.playerInv = data.playerInv; this.chestInv = data.chestInv; }
+        constructor(){ super('InventoryScene'); }
+        init(data){
+          // Deep copy or reference
+          this.playerInv = data.playerInv;
+          this.chestInv  = data.chestInv;
+        }
         create(){
           const width = this.scale.width;
-          const height = this.scale.height;
+          const height= this.scale.height;
           // Panel dimensions
-          this.leftPanel = new Phaser.Geom.Rectangle(50,50,200,300);
-          this.rightPanel = new Phaser.Geom.Rectangle(width-250,50,200,300);
-          // Draw frames and titles
+          this.panelWidth = 200; this.panelHeight = 300;
+          this.leftPanel  = new Phaser.Geom.Rectangle(50, 50, this.panelWidth, this.panelHeight);
+          this.rightPanel = new Phaser.Geom.Rectangle(width - 50 - this.panelWidth, 50, this.panelWidth, this.panelHeight);
+          // Make panels draggable
+          this.input.setDraggable(this.add.zone(this.leftPanel.x, this.leftPanel.y, this.panelWidth, 20).setOrigin(0).setInteractive());
+          this.input.setDraggable(this.add.zone(this.rightPanel.x, this.rightPanel.y, this.panelWidth, 20).setOrigin(0).setInteractive());
+          this.input.on('drag', (pointer, gameObj, dragX, dragY) => {
+            if (gameObj.input.hitArea.width === this.panelWidth && gameObj.input.hitArea.height === 20) {
+              // Determine which panel
+              if (gameObj.x === this.leftPanel.x) {
+                this.leftPanel.y = dragY;
+              } else {
+                this.rightPanel.y = dragY;
+              }
+              this.redraw();
+            }
+          });
+          // Draw initial
+          this.redraw();
+          // ESC to close
+          this.input.keyboard.on('keydown-ESC', ()=>this.close());
+        }
+        redraw(){
+          // Clear and redraw panels and items
+          this.children.removeAll();
+          // Draw panels
           this.graphics = this.add.graphics();
-          this.graphics.fillStyle(0x222222,0.8);
+          this.graphics.fillStyle(0x222222, 0.8);
           this.graphics.fillRectShape(this.leftPanel);
           this.graphics.fillRectShape(this.rightPanel);
-          this.add.text(this.leftPanel.x+10,this.leftPanel.y+10,'Inventory',{fontSize:'16px',fill:'#fff'});
-          this.add.text(this.rightPanel.x+10,this.rightPanel.y+10,'Chest',{fontSize:'16px',fill:'#fff'});
-          // Input drag listeners
-          this.input.on('dragstart',(pointer,gameObj)=>{ gameObj.setDepth(1000); });
-          this.input.on('drag',(pointer,gameObj,dragX,dragY)=>{ gameObj.x=dragX; gameObj.y=dragY; });
-          this.input.on('dragend', this.onDragEnd, this);
-          this.drawInventory();
-          // ESC to close
-          this.input.keyboard.on('keydown-ESC',()=>this.close());
+          // Titles
+          this.add.text(this.leftPanel.x+10, this.leftPanel.y+10, 'Inventory', { fontSize:'16px', fill:'#fff' });
+          this.add.text(this.rightPanel.x+10, this.rightPanel.y+10, 'Chest',     { fontSize:'16px', fill:'#fff' });
+          // Draw slots and items
+          this.drawSlots(this.leftPanel, this.playerInv, 'player');
+          this.drawSlots(this.rightPanel, this.chestInv,  'chest');
         }
-        drawInventory(){
-          if(this.iconsGroup) this.iconsGroup.clear(true,true);
-          this.iconsGroup = this.add.group();
-          // player slots
-          this.playerInv.forEach((item,i)=>{
-            const col=i%4, row=Math.floor(i/4);
-            const x=this.leftPanel.x+10+col*48, y=this.leftPanel.y+40+row*48;
-            const slot=this.add.rectangle(x,y,44,44,0x444444).setOrigin(0);
-            const icon=this.add.image(x+22,y+22,item.iconKey)
-                               .setInteractive({draggable:true})
-                               .setData('source','player')
-                               .setData('index',i);
-            this.iconsGroup.add(icon);
-          });
-          // chest slots
-          this.chestInv.forEach((item,i)=>{
-            const col=i%4, row=Math.floor(i/4);
-            const x=this.rightPanel.x+10+col*48, y=this.rightPanel.y+40+row*48;
-            const slot=this.add.rectangle(x,y,44,44,0x444444).setOrigin(0);
-            const icon=this.add.image(x+22,y+22,item.iconKey)
-                               .setInteractive({draggable:true})
-                               .setData('source','chest')
-                               .setData('index',i);
-            this.iconsGroup.add(icon);
+        drawSlots(panel, arr, source){
+          const maxCols = 4, maxRows = 5;
+          arr.forEach((item, i) => {
+            // Stacking: display count
+            const count = item.count || 1;
+            const idx = i;
+            const col = idx % maxCols;
+            const row = Math.floor(idx / maxCols);
+            if (row >= maxRows) return; // limit slots
+            const x = panel.x + 10 + col * 48;
+            const y = panel.y + 40 + row * 48;
+            // Slot bg
+            this.add.rectangle(x, y, 44, 44, 0x444444).setOrigin(0);
+            // Icon
+            const icon = this.add.image(x+22, y+22, item.iconKey)
+                               .setInteractive({ draggable: true })
+                               .setData('source', source)
+                               .setData('index', idx);
+            // Count text
+            if (count > 1) {
+              this.add.text(x+32, y+32, count.toString(), { fontSize:'12px', fill:'#fff' }).setOrigin(1);
+            }
+            // Drag events
+            icon.on('dragstart', (pointer, g) => g.setDepth(1000));
+            icon.on('drag', (pointer, g, dragX, dragY) => { g.x = dragX; g.y = dragY; });
+            icon.on('dragend', this.onDragEnd, this);
           });
         }
-        onDragEnd(pointer,gameObj){
-          const x=pointer.x, y=pointer.y;
-          let from=gameObj.getData('source'), idx=gameObj.getData('index');
-          let srcArr = from==='player'?this.playerInv:this.chestInv;
-          let destArr= from==='player'?this.chestInv:this.playerInv;
-          // Determine drop target
-          if(this.leftPanel.contains(x,y) && from==='chest'){
-            const item=this.chestInv.splice(idx,1)[0]; this.playerInv.push(item);
-          } else if(this.rightPanel.contains(x,y) && from==='player'){
-            const item=this.playerInv.splice(idx,1)[0]; this.chestInv.push(item);
+        onDragEnd(pointer, icon){
+          const x = pointer.x, y = pointer.y;
+          const from = icon.getData('source');
+          const idx  = icon.getData('index');
+          const srcArr = from === 'player' ? this.playerInv : this.chestInv;
+          const destArr= from === 'player' ? this.chestInv  : this.playerInv;
+          const destPanel = from === 'player' ? this.rightPanel : this.leftPanel;
+          // Compute if dropped inside destPanel
+          if (destPanel.contains(x, y)) {
+            const item = srcArr[idx];
+            // Stack if exists
+            const existing = destArr.find(it => it.iconKey === item.iconKey);
+            if (existing) {
+              existing.count = (existing.count || 1) + (item.count || 1);
+            } else if (destArr.length < 20) {
+              destArr.push({ iconKey: item.iconKey, count: item.count || 1 });
+            }
+            // Remove from src
+            if (item.count && item.count > 1 && existing) {
+              // all moved into stack, remove src
+              srcArr.splice(idx, 1);
+            } else {
+              srcArr.splice(idx, 1);
+            }
           }
-          this.drawInventory();
+          this.redraw();
         }
         close(){
-          this.scene.get('Main').events.emit('inventoryClosed',{playerInv:this.playerInv,chestInv:this.chestInv});
+          this.scene.get('Main').events.emit('inventoryClosed', { playerInv: this.playerInv, chestInv: this.chestInv });
           this.scene.stop();
         }
       }
 
-      const config={ type:Phaser.AUTO, parent:'game-container', scale:{mode:Phaser.Scale.FIT,autoCenter:Phaser.Scale.CENTER_BOTH}, physics:{default:'arcade'}, scene:[BootScene,PreloadScene,MainScene,InventoryScene] };
+      const config={ type: Phaser.AUTO, parent:'game-container', scale:{mode:Phaser.Scale.FIT,autoCenter:Phaser.Scale.CENTER_BOTH}, physics:{default:'arcade'}, scene:[BootScene,PreloadScene,MainScene,InventoryScene] };
+      new Phaser.Game(config);
+    });
+  </script>
+</body>
+</html>={ type:Phaser.AUTO, parent:'game-container', scale:{mode:Phaser.Scale.FIT,autoCenter:Phaser.Scale.CENTER_BOTH}, physics:{default:'arcade'}, scene:[BootScene,PreloadScene,MainScene,InventoryScene] };
       new Phaser.Game(config);
     });
   </script>
