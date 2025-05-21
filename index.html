@@ -160,18 +160,26 @@
               this.leftZone.x = dx;
               this.leftPanel.y = dy;
               this.leftZone.y = dy;
-              this.redraw();
-            } else if (obj === this.rightZone) {
-              this.rightPanel.x = dx;
-              this.rightZone.x = dx;
-              this.rightPanel.y = dy;
-              this.rightZone.y = dy;
-              this.redraw();
-            } else {
-              // Dragging an item
-              obj.x = dx;
-              obj.y = dy;
-            }
+              this.redraw(){
+          // Clear previous UI
+          this.uiGroup.clear(true,true);
+          // Draw panel backgrounds
+          const g = this.add.graphics();
+          // Panel main background
+          g.fillStyle(0x222222, 0.8).fillRectShape(this.leftPanel).fillRectShape(this.rightPanel);
+          // Title bars
+          g.fillStyle(0x333333, 1.0)
+           .fillRect(this.leftPanel.x, this.leftPanel.y, this.pw, 20)
+           .fillRect(this.rightPanel.x, this.rightPanel.y, this.pw, 20);
+          this.uiGroup.add(g);
+          // Draw titles atop title bars
+          const t1 = this.add.text(this.leftPanel.x + 10, this.leftPanel.y + 4, 'Inventory', {fontSize:'16px',fill:'#fff'}).setDepth(1);
+          const t2 = this.add.text(this.rightPanel.x + 10, this.rightPanel.y + 4, 'Chest', {fontSize:'16px',fill:'#fff'}).setDepth(1);
+          this.uiGroup.addMultiple([t1,t2]);
+          // Draw slots and icons
+          this.drawSlots(this.leftPanel, this.playerInv, 'player');
+          this.drawSlots(this.rightPanel, this.chestInv,  'chest');
+        }
           });
           this.input.on('dragend', this.onDragEnd, this);
           this.input.keyboard.on('keydown-ESC',()=>this.close());
