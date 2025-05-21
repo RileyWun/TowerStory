@@ -22,7 +22,9 @@
   <div id="footer"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.min.js"></script>
-  <script>
+  <script type="module" src="assets/js/npc-manager.js"></script>
+  <script type="module">
+    import { NPCManager } from './assets/js/npc-manager.js';
     window.addEventListener('load', () => {
       // Boot Scene
       class BootScene extends Phaser.Scene {
@@ -74,7 +76,10 @@
           const spawn = objs.find(o=>o.name==='PlayerSpawn');
           this.playerInv = [{iconKey:'potion',count:3},{iconKey:'sword',count:1}];
           this.chests = [];
-          this.npcs = [];
+          // Initialize NPC manager
+          this.npcManager = new NPCManager(this);
+          this.npcManager.createFromObjects(objs);
+          
           objs.forEach(o=>{
             const ix=o.x/this.tileW, iy=o.y/this.tileH;
             const sx=(ix-iy)*(this.tileW/2)+this.offsetX;
@@ -84,11 +89,7 @@
               chest.inventory = [{iconKey:'coin',count:2},{iconKey:'potion',count:1}];
               chest.on('pointerdown', () => this.openInventory(this.playerInv, chest.inventory));
               this.chests.push(chest);
-            } else if(o.type==='NPC') {
-              const npc = this.add.image(sx,sy,'npc').setOrigin(0.5,1).setDepth(sy);
-              this.npcs.push(npc);
-            }
-          });
+            
 
           // player
           this.player = this.add.sprite(0,0,'player').setOrigin(0.5,1);
@@ -115,11 +116,10 @@
               if(Phaser.Math.Distance.Between(x,y,ch.x,ch.y)<50) this.openInventory(this.playerInv,ch.inventory);
             });
           });
-          this.input.keyboard.on('keydown-F',()=>{
-            const {x,y}=this.player;
-            this.npcs.forEach(npc=>{
-              if(Phaser.Math.Distance.Between(x,y,npc.x,npc.y)<50) this.openDialogue(["Hello traveler!","Welcome to TowerStory."]);
-            });
+          // NPC conversation handling delegated to NPCManager
+          this.npcManager.enableConversations('F', npc => {
+            this.openDialogue(["Hello traveler!","Welcome to TowerStory."]);
+          });
           });
         }
         openInventory(playerInv,chestInv) { this.scene.pause(); this.scene.launch('InventoryScene',{playerInv,chestInv}); }
