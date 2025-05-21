@@ -80,7 +80,8 @@
           // Objects
           const objs=map.getObjectLayer('Objects').objects;
           const spawn=objs.find(o=>o.name==='PlayerSpawn');
-          this.playerInv=[];
+          // Initial player inventory (placeholder)
+          this.playerInv=[{iconKey:'potion',count:3},{iconKey:'sword',count:1}];
           this.chests=[];
           objs.forEach(o=>{
             const ix=o.x/this.tileW, iy=o.y/this.tileH;
@@ -125,7 +126,10 @@
 
           // Inventory
           this.events.on('inventoryClosed',data=>{this.playerInv=data.playerInv;this.scene.resume();});
-          this.input.keyboard.on('keydown-I',()=>this.openInventory(this.playerInv,[]));
+          // Toggle inventory only (no chest)
+          this.input.keyboard.on('keydown-I', ()=>{
+            this.openInventory(this.playerInv, null);
+          });
           this.input.keyboard.on('keydown-E',()=>{
             const {x,y}=this.player;
             this.chests.forEach(ch=>{
@@ -154,7 +158,13 @@
 
       class DialogueScene extends Phaser.Scene {
         constructor(){super('DialogueScene');}
-        init(data){this.lines=data.lines||[];}
+        init(data){
+          this.playerInv = data.playerInv;
+          // chestInv may be null (inventory only) or an array
+          this.chestInv = data.chestInv || [];
+          // Show chest panel only when chestInv !== null
+          this.showChest = data.chestInv != null;
+        }
         create(){const w=this.scale.width,h=this.scale.height;this.add.graphics().fillStyle(0x000000,0.7).fillRect(w/4,h/4,w/2,h/4);this.lines.forEach((l,i)=>this.add.text(w/4+20,h/4+20+i*24,l,{fontSize:'18px',fill:'#fff'}));this.input.keyboard.once('keydown-ESC',()=>this.scene.stop('DialogueScene')&&this.scene.resume('Main'));this.input.once('pointerdown',()=>this.scene.stop('DialogueScene')&&this.scene.resume('Main'));}
       }
 
