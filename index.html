@@ -81,15 +81,20 @@
           const spawn = objs.find(o=>o.name==='PlayerSpawn');
           this.playerInv = [{ iconKey:'potion',count:3},{ iconKey:'sword',count:1 }];
           this.chests = [];
+          this.npcs = []; // Track NPC sprites
           objs.forEach(o=>{
-            const ix=o.x/this.tileW, iy=o.y/this.tileH;
-            const sx=(ix-iy)*(this.tileW/2)+this.offsetX;
-            const sy=(ix+iy)*(this.tileH/2)+this.offsetY;
+            const ix = o.x/this.tileW, iy = o.y/this.tileH;
+            const sx = (ix-iy)*(this.tileW/2)+this.offsetX;
+            const sy = (ix+iy)*(this.tileH/2)+this.offsetY;
             if (o.type==='Chest') {
               const chest = this.add.image(sx,sy,'chest').setOrigin(0.5,1).setDepth(sy).setInteractive();
-              chest.inventory = [{ iconKey:'coin',count:2},{ iconKey:'potion',count:1 }];
+              chest.inventory = [{ iconKey:'coin', count:2 }, { iconKey:'potion', count:1 }];
               chest.on('pointerdown', () => this.openInventory(this.playerInv, chest.inventory));
               this.chests.push(chest);
+            } else if (o.type==='NPC') {
+              const npc = this.add.image(sx,sy,'npc').setOrigin(0.5,1).setDepth(sy);
+              this.npcs.push(npc);
+            }
             }
           });
 
@@ -115,6 +120,17 @@
             const { x, y } = this.player;
             this.chests.forEach(ch => {
               if (Phaser.Math.Distance.Between(x,y,ch.x,ch.y) < 50) this.openInventory(this.playerInv, ch.inventory);
+            });
+          });
+          // Talk to NPC with F when near
+          this.input.keyboard.on('keydown-F', () => {
+            const { x, y } = this.player;
+            this.npcs.forEach(npc => {
+              if (Phaser.Math.Distance.Between(x,y,npc.x,npc.y) < 50) {
+                this.openDialogue(["Hello traveler!", "Welcome to TowerStory."]);
+              }
+            });
+          });
             });
           });
         }
@@ -164,7 +180,9 @@
         close(){ this.scene.stop('InventoryScene'); this.scene.resume('Main'); }
       }
 
-      const config={ type: Phaser.AUTO, parent:'game-container', scale:{mode:Phaser.Scale.FIT,autoCenter:Phaser.Scale.CENTER_BOTH}, physics:{default:'arcade'}, scene:[BootScene,PreloadScene,MainScene,InventoryScene] };
+      const config={
+      // Register DialogueScene for NPC conversations
+      scene:[BootScene,PreloadScene,MainScene,InventoryScene,DialogueScene], type: Phaser.AUTO, parent:'game-container', scale:{mode:Phaser.Scale.FIT,autoCenter:Phaser.Scale.CENTER_BOTH}, physics:{default:'arcade'}, scene:[BootScene,PreloadScene,MainScene,InventoryScene] };
       new Phaser.Game(config);
     });
   </script>
