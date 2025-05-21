@@ -122,7 +122,6 @@
           this.npcManager.enableConversations('F', npc => {
             this.openDialogue(["Hello traveler!","Welcome to TowerStory."]);
           });
-          });
         }
         openInventory(playerInv,chestInv) { this.scene.pause(); this.scene.launch('InventoryScene',{playerInv,chestInv}); }
         closeInventory() { this.scene.stop('InventoryScene'); this.scene.resume(); }
