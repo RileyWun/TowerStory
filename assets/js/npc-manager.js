@@ -13,7 +13,7 @@ export class NPCManager {
 
   /**
    * Spawn NPC sprites from a Tiled object layer, reading their `npcId` property.
-   * @param {array} objectLayer - map.getObjectLayer('Objects').objects
+   * @param {object[]} objectLayer - array of Tiled objects
    */
   createFromObjects(objectLayer) {
     const { tileW, tileH, offsetX, offsetY } = this.scene;
@@ -22,14 +22,14 @@ export class NPCManager {
       .forEach(o => {
         const ix = o.x / tileW;
         const iy = o.y / tileH;
-        const sx = (ix - iy) * (tileW / 2) + offsetX;
-        const sy = (ix + iy) * (tileH / 2) + offsetY;
+        const px = (ix - iy) * (tileW / 2) + offsetX;
+        const py = (ix + iy) * (tileH / 2) + offsetY;
         const sprite = this.scene.add
-          .image(sx, sy, 'npc')
+          .image(px, py, 'npc')
           .setOrigin(0.5, 1)
-          .setDepth(sy)
+          .setDepth(py)
           .setInteractive();
-        // Attach the Tiled `npcId` property or fallback to object `id`
+        // Attach the Tiled `npcId` property or fallback to numeric id
         const prop = (o.properties || []).find(p => p.name === 'npcId');
         sprite.npcId = prop && prop.value ? prop.value : o.id;
         this.npcs.push(sprite);
@@ -37,8 +37,8 @@ export class NPCManager {
   }
 
   /**
-   * Bind a key (default 'F') to trigger conversations when near an NPC.
-   * @param {string} key - keyboard key for interaction
+   * Bind keyboard and pointer to trigger conversations when near an NPC.
+   * @param {string} key - keyboard key for interaction (default 'F')
    * @param {function} callback - fired with the NPC sprite when in range
    */
   enableConversations(key = 'F', callback) {
@@ -51,7 +51,8 @@ export class NPCManager {
         }
       });
     });
-    // Click / pointer interaction
+
+    // Pointer interaction (click)
     this.npcs.forEach(npc => {
       npc.on('pointerdown', () => {
         const { x, y } = this.scene.player;
@@ -61,3 +62,4 @@ export class NPCManager {
       });
     });
   }
+}
