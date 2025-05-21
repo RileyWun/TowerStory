@@ -155,7 +155,7 @@
           });
           this.input.on('dragend', this.onDragEnd, this);
           // Close on ESC
-          this.input.keyboard.on('keydown-ESC', () => this.close());('keydown-ESC',()=>this.close());
+          this.input.keyboard.on('keydown-ESC', () => this.close());
         }
         redraw(){
           this.graphics.clear().fillStyle(0x222222,0.8).fillRectShape(this.leftPanel).fillRectShape(this.rightPanel);
