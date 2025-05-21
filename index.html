@@ -137,18 +137,25 @@
           this.graphics=this.add.graphics();
           this.redraw();
           // Draggable title bars
-          this.leftZone=this.add.zone(this.leftPanel.x,this.leftPanel.y,this.pw,20).setOrigin(0).setInteractive();
-          this.rightZone=this.add.zone(this.rightPanel.x,this.rightPanel.y,this.pw,20).setOrigin(0).setInteractive();
-          this.input.setDraggable([this.leftZone,this.rightZone]);
-          this.input.on('dragstart',(p,obj)=>{ if (obj!==this.leftZone&&obj!==this.rightZone) obj.setDepth(1000);} );
-          this.input.on('drag',(p,obj,dx,dy)=>{
-            if (obj===this.leftZone){ this.leftPanel.x=dx; this.leftZone.x=dx; this.leftPanel.y=dy; this.leftZone.y=dy; }
-            else if (obj===this.rightZone){ this.rightPanel.x=dx; this.rightZone.x=dx; this.rightPanel.y=dy; this.rightZone.y=dy; }
-            else { obj.x=dx; obj.y=dy; }
+          this.leftZone = this.add.zone(this.leftPanel.x, this.leftPanel.y, this.pw, 20).setOrigin(0).setInteractive();
+          this.rightZone = this.add.zone(this.rightPanel.x, this.rightPanel.y, this.pw, 20).setOrigin(0).setInteractive();
+          this.input.setDraggable([this.leftZone, this.rightZone]);
+          this.input.on('dragstart', (pointer, obj) => { if (obj !== this.leftZone && obj !== this.rightZone) obj.setDepth(1000); });
+          this.input.on('drag', (pointer, obj, dx, dy) => {
+            if (obj === this.leftZone) {
+              this.leftPanel.x = dx; this.leftZone.x = dx;
+              this.leftPanel.y = dy; this.leftZone.y = dy;
+            } else if (obj === this.rightZone) {
+              this.rightPanel.x = dx; this.rightZone.x = dx;
+              this.rightPanel.y = dy; this.rightZone.y = dy;
+            } else {
+              obj.x = dx; obj.y = dy;
+            }
             this.redraw();
           });
-          this.input.on('dragend',this.onDragEnd,this);
-          this.input.keyboard.on('keydown-ESC',()=>this.close());
+          this.input.on('dragend', this.onDragEnd, this);
+          // Close on ESC
+          this.input.keyboard.on('keydown-ESC', () => this.close());('keydown-ESC',()=>this.close());
         }
         redraw(){
           this.graphics.clear().fillStyle(0x222222,0.8).fillRectShape(this.leftPanel).fillRectShape(this.rightPanel);
