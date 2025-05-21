@@ -87,8 +87,7 @@
             if (o.type==='Chest') {
               const chest = this.add.image(sx,sy,'chest').setOrigin(0.5,1).setDepth(sy).setInteractive();
               chest.inventory = [{iconKey:'coin',count:2},{iconKey:'potion',count:1}];
-              chest.on('pointerdown',()=>{
-                this.openInventory(chest.inventory);
+              chest.on('pointerdown',()=>{ this.openInventory(this.playerInv, chest.inventory); });
               });
               this.chests.push(chest);
             } else if (o.type==='NPC') {
@@ -118,6 +117,8 @@
           // Toggle inventory with I
           this.input.keyboard.on('keydown-I',()=>{
             if (this.scene.isActive('InventoryScene')) this.closeInventory();
+            else this.openInventory(this.playerInv, []);
+          });
             else this.openInventory(this.playerInv);
           });
 
@@ -126,12 +127,15 @@
             const px = this.player.x, py = this.player.y;
             this.chests.forEach(chest=>{
               const dist = Phaser.Math.Distance.Between(px,py,chest.x,chest.y);
+              if (dist<50) this.openInventory(this.playerInv, chest.inventory);
+            });
+          });
               if (dist<50) this.openInventory(chest.inventory);
             });
           });
         }
 
-        openInventory(inv) {
+        openInventory(playerInv, chestInv) {
           this.scene.pause();
           this.scene.launch('InventoryScene',{playerInv:this.playerInv,chestInv:inv});
         }
