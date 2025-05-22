@@ -15,7 +15,7 @@
  *       type: 'choice',
  *       question: 'Question text',
  *       options: [
- *         { text: 'Option A', next: 'nodeAfterA' },
+ *         { text: 'Option A', action: someCallback, next: 'nodeAfterA' },
  *         { text: 'Option B', next: 'nodeAfterB' }
  *       ]
  *     }
@@ -31,16 +31,13 @@ export class DialogueTreeManager {
 
   /**
    * Register a dialogue tree for a given npcId.
-   * @param {string} npcId
-   * @param {object} treeDefinition
    */
   registerTree(npcId, treeDefinition) {
     this.trees[npcId] = treeDefinition;
   }
 
   /**
-   * Kick off a dialogue for the specified NPC.
-   * @param {string} npcId
+   * Start a dialogue for the specified NPC.
    */
   startDialogue(npcId) {
     const tree = this.trees[npcId];
@@ -53,28 +50,34 @@ export class DialogueTreeManager {
   }
 
   /**
-   * Internal: process a single node.
-   * @param {string} nodeKey
+   * Process a single node in the current tree.
    */
   _runNode(nodeKey) {
     const node = this.currentTree.nodes[nodeKey];
     if (!node) return;
+
     if (node.type === 'text') {
-      // show text, then advance
-      // launch built-in DialogueScene directly
+      // Launch text dialogue
       this.scene.scene.launch('DialogueScene', { lines: node.lines });
-      // after dialogue closes, run next
+      // After dialogue closes, move to next
       this.scene.events.once('dialogueClosed', () => {
         if (node.next) this._runNode(node.next);
       });
     }
     else if (node.type === 'choice') {
       const texts = node.options.map(o => o.text);
-      // launch built-in ChoiceScene directly
-      this.scene.scene.launch('ChoiceScene', { question: node.question, options: texts, callback: idx => {
-        const opt = node.options[idx];
-        if (opt.next) this._runNode(opt.next);
-      }});;
+      // Launch choice dialogue
+      this.scene.scene.launch('ChoiceScene', {
+        question: node.question,
+        options: texts,
+        callback: idx => {
+          const opt = node.options[idx];
+          // Perform optional action
+          if (opt.action) opt.action(this.scene);
+          // Then advance to next node
+          if (opt.next) this._runNode(opt.next);
+        }
+      });
     }
   }
 }
