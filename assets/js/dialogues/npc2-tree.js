@@ -14,7 +14,7 @@ export default {
       question: 'Will you accept my shekels?',
       options: [
         {
-          text: 'Yes, I will accept this quest',
+          text: 'Yes, of course!',
           action: () => {
             // Accept quest2 and immediately show inventory with reward
             this.questManager.accept('quest2');
