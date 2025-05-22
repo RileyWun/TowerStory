@@ -115,32 +115,39 @@
           this.dialogueTree = new DialogueTreeManager(this);
 
           // Sample tree for npc2
-    this.dialogueTree.registerTree('npc2', {
-    start: 'greeting',
-    nodes: {
-      greeting: {
-        type: 'text',
-        lines: ['Hello traveler!'],
-        next: 'offerQuest'
-      },
-      offerQuest: {
-        type: 'choice',
-        question: 'Will you accept this quest?',
-        options: [
-          { text: 'Yes, I will accept this quest', next: 'questAccepted' },
-          { text: 'I have to think about it, I\'ll talk later', next: 'farewell' }
-        ]
-      },
-      questAccepted: {
-        type: 'text',
-        lines: ['Thank you! Here are 10 coins.']
-      },
-      farewell: {
-        type: 'text',
-        lines: ['Safe travels!']
-      }
+    this.dialogueTree.registerTree('npc1', {
+  start: 'greeting',
+  nodes: {
+    greeting: {
+      type: 'text',
+      lines: ['Hello traveler!'],
+      next: 'offerQuest'
+    },
+    offerQuest: {
+      type: 'choice',
+      question: 'Will you accept this quest?',
+      options: [
+        { 
+          text: 'Yes, I will accept this quest', 
+          action: () => this.questManager.accept('quest1'),
+          next: 'questAccepted' 
+        },
+        { 
+          text: 'I have to think about it, I\'ll talk later', 
+          next: 'farewell' 
+        }
+      ]
+    },
+    questAccepted: {
+      type: 'text',
+      lines: ['Thank you! Here are 10 coins.']
+    },
+    farewell: {
+      type: 'text',
+      lines: ['Safe travels!']
     }
-  });
+  }
+});
 
       this.npcManager.enableConversations('F', npc => {
       // Kick off the dialogue tree for this NPC
