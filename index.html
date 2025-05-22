@@ -180,12 +180,28 @@
         }
       }
 
-      // Dialogue Scene
-      class DialogueScene extends Phaser.Scene {
-        constructor(){super('DialogueScene');}
-        init(data){this.lines=data.lines||[];}
-        create(){const w=this.scale.width,h=this.scale.height;this.add.graphics().fillStyle(0x000000,0.7).fillRect(w/4,h/4,w/2,h/4);this.lines.forEach((l,i)=>this.add.text(w/4+20,h/4+20+i*24,l,{fontSize:'18px',fill:'#fff'}));this.input.keyboard.once('keydown-ESC',()=>{this.scene.stop('DialogueScene');this.scene.resume('Main');});this.input.once('pointerdown',()=>{this.scene.stop('DialogueScene');this.scene.resume('Main');});}
-      }
+// Dialogue Scene
+class DialogueScene extends Phaser.Scene {
+  constructor(){ super('DialogueScene'); }
+  init(data){ this.lines = data.lines || []; }
+  create(){
+    const w = this.scale.width, h = this.scale.height;
+    this.add.graphics().fillStyle(0x000000,0.7).fillRect(w/4, h/4, w/2, h/4);
+    this.lines.forEach((l, i) =>
+      this.add.text(w/4 + 20, h/4 + 20 + i*24, l, { fontSize:'18px', fill:'#fff' })
+    );
+
+    // close handler that notifies the DialogueTreeManager
+    const closeDialog = () => {
+      this.scene.stop('DialogueScene');
+      this.scene.resume('Main');
+      this.scene.get('Main').events.emit('dialogueClosed');
+    };
+
+    this.input.keyboard.once('keydown-ESC', closeDialog);
+    this.input.once('pointerdown', closeDialog);
+  }
+}
 
       // Choice Scene
       class ChoiceScene extends Phaser.Scene {
