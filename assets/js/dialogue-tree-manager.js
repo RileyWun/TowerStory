@@ -61,7 +61,8 @@ export class DialogueTreeManager {
     if (!node) return;
     if (node.type === 'text') {
       // show text, then advance
-      this.scene.openDialogue(node.lines);
+      // launch built-in DialogueScene directly
+      this.scene.scene.launch('DialogueScene', { lines: node.lines });
       // after dialogue closes, run next
       this.scene.events.once('dialogueClosed', () => {
         if (node.next) this._runNode(node.next);
@@ -69,10 +70,11 @@ export class DialogueTreeManager {
     }
     else if (node.type === 'choice') {
       const texts = node.options.map(o => o.text);
-      this.scene.openChoice(node.question, texts, index => {
-        const opt = node.options[index];
+      // launch built-in ChoiceScene directly
+      this.scene.scene.launch('ChoiceScene', { question: node.question, options: texts, callback: idx => {
+        const opt = node.options[idx];
         if (opt.next) this._runNode(opt.next);
-      });
+      }});;
     }
   }
 }
