@@ -111,11 +111,7 @@
           this.npcManager=new NPCManager(this);
           this.npcManager.createFromObjects(objs);
           this.questManager=new QuestManager(this);
-          // Dialogue trees for branching NPC conversations
           this.dialogueTree = new DialogueTreeManager(this);
-
-          // After instantiating dialogueTree:
-this.dialogueTree = new DialogueTreeManager(this);
 
 // Dynamically import each NPC’s dialogue file based on npcId
 this.npcManager.npcs.forEach(npc => {
