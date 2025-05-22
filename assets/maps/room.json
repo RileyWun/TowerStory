@@ -86,11 +86,11 @@
           "visible": true
         },
         {
-          "id": 3,
-          "name": "NPC1",
+          "id": 4,
+          "name": "NewNPC",
           "type": "NPC",
-          "x": 304,
-          "y": 380,
+          "x": 300,
+          "y": 350,
           "width": 0,
           "height": 0,
           "visible": true,
@@ -98,7 +98,7 @@
             {
               "name": "npcId",
               "type": "string",
-              "value": "npc1"
+              "value": "npc2"
             }
           ]
         }
