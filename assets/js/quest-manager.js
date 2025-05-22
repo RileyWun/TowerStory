@@ -8,22 +8,6 @@ export class QuestManager {
     this.loadQuests();
   }
 
-  // In future, load from external JSON or API
-  loadQuests() {
-    // Example static quest list; replace or extend as needed
-    this.quests = [
-  {
-    id:      'quest2',
-    npcId:   'npc2',         // ← must match your new room.json property
-    prompt:  'Will you help me?',
-    acceptText:  'Yes!',
-    declineText: 'No bitch!',
-    reward:  'coin',
-    rewardCount: 5
-  },
-    ];
-  }
-
   /**
    * Get the next quest for a given NPC, if not already accepted.
    * @param {string} npcId
@@ -50,6 +34,10 @@ export class QuestManager {
       else inv.push({ iconKey: quest.reward, count: quest.rewardCount });
     }
     console.log(`Quest accepted: ${questId}`);
+    // Auto-open inventory so the player sees their new coins
+if (this.scene.openInventory) {
+  this.scene.openInventory(this.scene.playerInv, null);
+}
   }
 
   /**
