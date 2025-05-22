@@ -15,11 +15,10 @@ export default {
       options: [
         {
           text: 'Yes, of course!',
-          action: () => {
-            // Accept quest2 and immediately show inventory with reward
-            this.questManager.accept('quest2');
-            this.openInventory(this.playerInv, null);
-          },
+          action: (scene) => {
+          scene.questManager.accept('quest2');
+          scene.openInventory(scene.playerInv, null);
+        },
           next: 'questAccepted'
         },
         {
