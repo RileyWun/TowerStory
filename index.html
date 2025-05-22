@@ -34,6 +34,7 @@
     import { NPCManager } from './assets/js/npc-manager.js';
     import { QuestManager } from './assets/js/quest-manager.js';
     import { DialogueTreeManager } from './assets/js/dialogue-tree-manager.js';
+    import { TradeManager } from './assets/js/trade-manager.js';
 
     window.addEventListener('load', () => {
       class BootScene extends Phaser.Scene {
@@ -112,6 +113,7 @@
           this.npcManager.createFromObjects(objs);
           this.questManager=new QuestManager(this);
           this.dialogueTree = new DialogueTreeManager(this);
+          this.tradeManager = new TradeManager(this);
 
 // Dynamically import each NPC’s dialogue file based on npcId
 this.npcManager.npcs.forEach(npc => {
@@ -184,7 +186,16 @@ class DialogueScene extends Phaser.Scene {
     this.input.once('pointerdown', closeDialog);
   }
 }
-
+  // Register merchant dialogue dynamically
+      this.npcManager.npcs.forEach(npc => {
+      import(`./assets/js/dialogues/${npc.npcId}-tree.js`)
+    .then(mod => {
+      this.dialogueTree.registerTree(npc.npcId, mod.default);
+    })
+    .catch(() => {
+      console.warn(`No dialogue tree for ${npc.npcId}`);
+    });
+});
       // Choice Scene
       class ChoiceScene extends Phaser.Scene {
         constructor(){super('ChoiceScene');}
