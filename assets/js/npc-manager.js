@@ -4,16 +4,12 @@ export class NPCManager {
     this.npcs = [];
   }
 
-  /**
-   * (Optional) Preload any NPC-specific assets here.
-   */
   preload() {
-    // e.g. this.scene.load.spritesheet('npcTypeA', 'assets/npcs/typeA.png', { frameWidth:64, frameHeight:64 });
+    // If NPC-specific assets are needed, load here
   }
 
   /**
-   * Spawn NPC sprites from a Tiled object layer, reading their `npcId` property.
-   * @param {object[]} objectLayer - array of Tiled objects
+   * Spawn NPC sprites from Tiled objects and assign npcId
    */
   createFromObjects(objectLayer) {
     const { tileW, tileH, offsetX, offsetY } = this.scene;
@@ -22,27 +18,26 @@ export class NPCManager {
       .forEach(o => {
         const ix = o.x / tileW;
         const iy = o.y / tileH;
-        const px = (ix - iy) * (tileW / 2) + offsetX;
-        const py = (ix + iy) * (tileH / 2) + offsetY;
-        const sprite = this.scene.add
-          .image(px, py, 'npc')
+        const x = (ix - iy) * (tileW / 2) + offsetX;
+        const y = (ix + iy) * (tileH / 2) + offsetY;
+        const sprite = this.scene.add.image(x, y, 'npc')
           .setOrigin(0.5, 1)
-          .setDepth(py)
+          .setDepth(y)
           .setInteractive();
-        // Attach the Tiled `npcId` property or fallback to numeric id
+
+        // Read npcId property, fallback to numeric id
         const prop = (o.properties || []).find(p => p.name === 'npcId');
-        sprite.npcId = prop && prop.value ? prop.value : o.id;
+        sprite.npcId = prop ? prop.value : o.id;
+
         this.npcs.push(sprite);
       });
   }
 
   /**
-   * Bind keyboard and pointer to trigger conversations when near an NPC.
-   * @param {string} key - keyboard key for interaction (default 'F')
-   * @param {function} callback - fired with the NPC sprite when in range
+   * Enable both key and click to trigger conversation
    */
   enableConversations(key = 'F', callback) {
-    // Keyboard interaction
+    // Key press
     this.scene.input.keyboard.on(`keydown-${key}`, () => {
       const { x, y } = this.scene.player;
       this.npcs.forEach(npc => {
@@ -52,7 +47,7 @@ export class NPCManager {
       });
     });
 
-    // Pointer interaction (click)
+    // Click/tap
     this.npcs.forEach(npc => {
       npc.on('pointerdown', () => {
         const { x, y } = this.scene.player;
