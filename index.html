@@ -110,8 +110,9 @@
           this.npcManager=new NPCManager(this);
           this.npcManager.createFromObjects(objs);
           this.questManager=new QuestManager(this);
-          this.npcManager.enableConversations('F',npc=>{
-            const quest=this.questManager.getQuestFor(npc.id);
+          this.npcManager.enableConversations('F', npc => {
+          // NEW → npc.npcId
+          const quest = this.questManager.getQuestFor(npc.npcId);
             if(quest){
               this.openChoice(
                 quest.prompt,
