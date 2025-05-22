@@ -33,6 +33,7 @@
   <script type="module">
     import { NPCManager } from './assets/js/npc-manager.js';
     import { QuestManager } from './assets/js/quest-manager.js';
+    import { DialogueTreeManager } from './assets/js/dialogue-tree-manager.js';
 
     window.addEventListener('load', () => {
       class BootScene extends Phaser.Scene {
@@ -110,17 +111,41 @@
           this.npcManager=new NPCManager(this);
           this.npcManager.createFromObjects(objs);
           this.questManager=new QuestManager(this);
-          this.npcManager.enableConversations('F', npc => {
-          // NEW → npc.npcId
-          const quest = this.questManager.getQuestFor(npc.npcId);
-            if(quest){
-              this.openChoice(
-                quest.prompt,
-                [quest.acceptText,quest.declineText],
-                choice=>{ if(choice===0) this.questManager.accept(quest.id); }
-              );
-            }
-          });
+          // Dialogue trees for branching NPC conversations
+          this.dialogueTree = new DialogueTreeManager(this);
+
+          // Sample tree for npc1
+    this.dialogueTree.registerTree('npc1', {
+    start: 'greeting',
+    nodes: {
+      greeting: {
+        type: 'text',
+        lines: ['Hello traveler!'],
+        next: 'offerQuest'
+      },
+      offerQuest: {
+        type: 'choice',
+        question: 'Will you accept this quest?',
+        options: [
+          { text: 'Yes, I will accept this quest', next: 'questAccepted' },
+          { text: 'I have to think about it, I\'ll talk later', next: 'farewell' }
+        ]
+      },
+      questAccepted: {
+        type: 'text',
+        lines: ['Thank you! Here are 10 coins.']
+      },
+      farewell: {
+        type: 'text',
+        lines: ['Safe travels!']
+      }
+    }
+  });
+
+      this.npcManager.enableConversations('F', npc => {
+      // Kick off the dialogue tree for this NPC
+      this.dialogueTree.startDialogue(npc.npcId);
+  });
 
           // Inventory
           this.events.on('inventoryClosed',data=>{this.playerInv=data.playerInv;this.scene.resume();});
