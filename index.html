@@ -114,39 +114,18 @@
           // Dialogue trees for branching NPC conversations
           this.dialogueTree = new DialogueTreeManager(this);
 
-          // Sample tree for npc2
-    this.dialogueTree.registerTree('npc2', {
-  start: 'greeting',
-  nodes: {
-    greeting: {
-      type: 'text',
-      lines: ['Hello traveler!'],
-      next: 'offerQuest'
-    },
-    offerQuest: {
-      type: 'choice',
-      question: 'Will you accept this quest?',
-      options: [
-        { 
-          text: 'Yes, I will accept this quest', 
-          action: () => this.questManager.accept('quest1'),
-          next: 'questAccepted' 
-        },
-        { 
-          text: 'I have to think about it, I\'ll talk later', 
-          next: 'farewell' 
-        }
-      ]
-    },
-    questAccepted: {
-      type: 'text',
-      lines: ['Thank you! Here are 10 coins.']
-    },
-    farewell: {
-      type: 'text',
-      lines: ['Safe travels!']
-    }
-  }
+          // After instantiating dialogueTree:
+this.dialogueTree = new DialogueTreeManager(this);
+
+// Dynamically import each NPC’s dialogue file based on npcId
+this.npcManager.npcs.forEach(npc => {
+  import(`./assets/js/dialogues/${npc.npcId}-tree.js`)
+    .then(mod => {
+      this.dialogueTree.registerTree(npc.npcId, mod.default);
+    })
+    .catch(err => {
+      console.warn(`No dialogue module found for ${npc.npcId}`, err);
+    });
 });
 
       this.npcManager.enableConversations('F', npc => {
