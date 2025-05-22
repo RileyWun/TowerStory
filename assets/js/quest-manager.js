@@ -12,15 +12,15 @@ export class QuestManager {
   loadQuests() {
     // Example static quest list; replace or extend as needed
     this.quests = [
-      {
-        id: 'quest1',
-        npcId: 'npc1',            // should match the NPC's identifier
-        prompt: 'Will you accept this quest?',
-        acceptText: 'Yes, I will accept this quest',
-        declineText: "I have to think about it, I'll talk to you later",
-        reward: 'coin',
-        rewardCount: 10
-      }
+  {
+    id:      'quest2',
+    npcId:   'npc2',         // ← must match your new room.json property
+    prompt:  'Will you help me?',
+    acceptText:  'Yes!',
+    declineText: 'No bitch!',
+    reward:  'coin',
+    rewardCount: 5
+  },
     ];
   }
 
