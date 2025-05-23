@@ -115,13 +115,20 @@
           this.dialogueTree=new DialogueTreeManager(this);
           this.tradeManager=new TradeManager(this);
 
-          // Dynamically load each NPC's dialogue tree
-          this.npcManager.npcs.forEach(npc => {
-            import(`./assets/js/dialogues/${npc.npcId}-tree.js`)
-              .then(mod => this.dialogueTree.registerTree(npc.npcId, mod.default))
-              .catch(err => console.warn(`No dialogue module for ${npc.npcId}`, err));
-          });
+          // Load each NPC's “main” dialogue tree
+this.npcManager.npcs.forEach(npc => {
+  import(`./assets/js/dialogues/${npc.npcId}-tree.js`)
+    .then(mod => this.dialogueTree.registerTree(npc.npcId, mod.default))
+    .catch(() => console.warn(`No dialogue module for ${npc.npcId}`));
+});
 
+// Load each NPC's “quest” tree (if it exists)
+this.npcManager.npcs.forEach(npc => {
+  import(`./assets/js/dialogues/${npc.npcId}-quest-tree.js`)
+    .then(mod => this.dialogueTree.registerTree(`${npc.npcId}Quest`, mod.default))
+    .catch(() => {/* it's okay if there's no quest */});
+});
+          
           // Conversation & interactions
           this.npcManager.enableConversations('F', npc =>
             this.dialogueTree.startDialogue(npc.npcId)
