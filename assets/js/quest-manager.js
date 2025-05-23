@@ -10,27 +10,30 @@ export class QuestManager {
   /**
    * Populate the list of all available quests
    */
-  loadQuests() {
-    this.quests = [
-      {
-        id: 'quest2',        // matches npcId 'npc2'
-        npcId: 'npc2',
-        prompt: 'Will you help me?',
-        acceptText: 'Yes, of course!',
-        declineText: 'Not right now.',
-        reward: 'coin',
-        rewardCount: 5
-      },
-      {  // ← comma added above
-        id: 'merchant1Quest',
-        npcId: 'merchant1',
-        prompt: 'I’m running low on potions—could you bring me 5 healing herbs?',
-        acceptText: 'Absolutely, I’ll get them for you.',
-        declineText: 'Sorry, I’m busy right now.',
-        reward: 'potion',
-        rewardCount: 1
-      }
-    ];
+loadQuests() {
+  this.quests = [
+    {
+      id: 'quest2',
+      npcId: 'npc2',
+      prompt: 'Will you help me?',
+      acceptText: 'Yes, of course!',
+      declineText: 'Not right now.',
+      reward: 'coin',
+      rewardCount: 5
+      // ← no dialogueFile here
+    },
+    {
+      id: 'merchant1Quest',
+      npcId: 'merchant1',
+      prompt: 'I’m running low on potions—could you bring me 5 healing herbs?',
+      acceptText: 'Absolutely, I’ll get them for you.',
+      declineText: 'Sorry, I’m busy right now.',
+      reward: 'potion',
+      rewardCount: 1,
+      dialogueFile: 'merchant1-quest-tree.js'  // ← annotate
+    }
+  ];
+}
     // Add more quests here
   }
 
