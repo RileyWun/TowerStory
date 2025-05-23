@@ -12,7 +12,7 @@ export default {
           next: 'accepted'
         },
         {
-          text: 'Not right now.',
+          text: 'Sorry, I’m busy right now.',
           next: 'declined'
         }
       ]
