@@ -292,12 +292,36 @@
 
       }
 
+      // Trade Scene (placeholder UI)
+  class TradeScene extends Phaser.Scene {
+  constructor(){ super('TradeScene'); }
+  init(data) {
+    this.npcId = data.npcId;
+  }
+  create(){
+    const w = this.scale.width, h = this.scale.height;
+    // dark backdrop
+    this.add.graphics()
+      .fillStyle(0x000000, 0.8)
+      .fillRect(w/4, h/4, w/2, h/2);
+    // simple trade title
+    this.add.text(w/4 + 20, h/4 + 20,
+      `Trading with ${this.npcId}`, { fontSize:'18px', fill:'#fff' }
+    );
+    // close on ESC
+    this.input.keyboard.once('keydown-ESC', () => {
+      this.scene.stop('TradeScene');
+      this.scene.resume('Main');
+    });
+  }
+}
+
       const config={
         type:Phaser.AUTO,
         parent:'game-container',
         scale:{mode:Phaser.Scale.FIT,autoCenter:Phaser.Scale.CENTER_BOTH},
         physics:{default:'arcade'},
-        scene:[BootScene,PreloadScene,MainScene,DialogueScene,ChoiceScene,InventoryScene]
+        scene:[BootScene,PreloadScene,MainScene,DialogueScene,ChoiceScene,TradeScene,InventoryScene]
       };
       new Phaser.Game(config);
     });
