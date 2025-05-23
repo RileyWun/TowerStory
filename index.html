@@ -123,16 +123,14 @@ this.npcManager.npcs.forEach(npc => {
 });
 
 // Load each NPC's “quest” tree (if it exists)
-this.npcManager.npcs.forEach(npc => {
-  const quest = this.questManager.getQuestFor(npc.npcId);
-  if (!quest) return;   // skip anyone who has no quest
-
-  import(`./assets/js/dialogues/${npc.npcId}-quest-tree.js`)
+this.questManager.quests.forEach(q => {
+  if (!q.dialogueFile) return;   // skip anything without a file
+  import(`./assets/js/dialogues/${q.dialogueFile}`)
     .then(mod => {
-      this.dialogueTree.registerTree(`${npc.npcId}Quest`, mod.default);
+      this.dialogueTree.registerTree(q.id, mod.default);
     })
     .catch(err => {
-      console.warn(`Failed to load quest tree for ${npc.npcId}`, err);
+      console.warn(`Failed to load quest tree module: ${q.dialogueFile}`, err);
     });
 });
           // Conversation & interactions
