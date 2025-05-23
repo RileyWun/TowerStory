@@ -40,10 +40,10 @@ export default {
     },
     offerQuest: {
       type: 'choice',
-      question: 'I need someone to deliver these parcels. Will you help?',
+      question: 'I’m running low on potions—could you bring me 5 healing herbs?',
       options: [
         {
-          text: 'Yes, I'll help',
+          text: 'Absolutely, I’ll get them for you.',
           action: scene => {
             // Accept a merchant-specific quest
             scene.questManager.accept('merchant1Quest');
@@ -52,7 +52,7 @@ export default {
           next: 'questAccepted'
         },
         {
-          text: 'Maybe later',
+          text: 'Sorry, I’m busy right now.',
           next: 'mainMenu'
         }
       ]
@@ -60,7 +60,7 @@ export default {
     questAccepted: {
       type: 'text',
       lines: [
-        'Thank you! Return when you've completed the delivery.'
+        'Thank you! Return when you've collected 5 healing herbs.'
       ],
       next: 'mainMenu'
     },
