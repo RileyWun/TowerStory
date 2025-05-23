@@ -20,8 +20,8 @@ export class QuestManager {
         declineText: 'Not right now.',
         reward: 'coin',
         rewardCount: 5
-      }
-      {
+      },
+      {  // ← comma added above
         id: 'merchant1Quest',
         npcId: 'merchant1',
         prompt: 'I’m running low on potions—could you bring me 5 healing herbs?',
@@ -30,9 +30,8 @@ export class QuestManager {
         reward: 'potion',
         rewardCount: 1
       }
-
-      // Add more quests here
     ];
+    // Add more quests here
   }
 
   /**
