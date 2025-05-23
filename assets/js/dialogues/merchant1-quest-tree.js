@@ -7,7 +7,7 @@ export default {
       question: 'I’m running low on potions—could you bring me 5 healing herbs?',
       options: [
         {
-          text: 'Yes, of course!',
+          text: 'Absolutely, I’ll get them for you.',
           action: scene => scene.questManager.accept('merchant1Quest'),
           next: 'accepted'
         },
