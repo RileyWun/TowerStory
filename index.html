@@ -115,22 +115,23 @@
           this.dialogueTree=new DialogueTreeManager(this);
           this.tradeManager=new TradeManager(this);
 
-          // Load each NPC's “main” dialogue tree
+// 1) Load each NPC's main dialogue tree:
 this.npcManager.npcs.forEach(npc => {
   import(`./assets/js/dialogues/${npc.npcId}-tree.js`)
     .then(mod => this.dialogueTree.registerTree(npc.npcId, mod.default))
-    .catch(() => console.warn(`No dialogue module for ${npc.npcId}`));
+    .catch(err => console.warn(`No dialogue module for ${npc.npcId}`, err));
 });
 
-// Load each NPC's “quest” tree (if it exists)
-this.questManager.quests.forEach(q => {
-  if (!q.dialogueFile) return;   // skip anything without a file
-  import(`./assets/js/dialogues/${q.dialogueFile}`)
+// 2) Load each quest dialogue tree (only for quests that provided a dialogueFile)
+this.questManager.quests.forEach(quest => {
+  if (!quest.dialogueFile) return;  // skip quests without a file
+  import(`./assets/js/dialogues/${quest.dialogueFile}`)
     .then(mod => {
-      this.dialogueTree.registerTree(q.id, mod.default);
+      // register under the quest’s own ID, e.g. "merchant1Quest"
+      this.dialogueTree.registerTree(quest.id, mod.default);
     })
     .catch(err => {
-      console.warn(`Failed to load quest tree module: ${q.dialogueFile}`, err);
+      console.warn(`Failed to load quest tree for ${quest.id}`, err);
     });
 });
           // Conversation & interactions
