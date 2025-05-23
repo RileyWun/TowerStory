@@ -21,6 +21,16 @@ export class QuestManager {
         reward: 'coin',
         rewardCount: 5
       }
+      {
+        id: 'merchant1Quest',
+        npcId: 'merchant1',
+        prompt: 'I’m running low on potions—could you bring me 5 healing herbs?',
+        acceptText: 'Absolutely, I’ll get them for you.',
+        declineText: 'Sorry, I’m busy right now.',
+        reward: 'potion',
+        rewardCount: 1
+      }
+
       // Add more quests here
     ];
   }
