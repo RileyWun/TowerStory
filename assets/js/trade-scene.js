@@ -1,103 +1,116 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// Trade Scene (drag‐&‐drop between merchant and player, with pricing)
-// ─────────────────────────────────────────────────────────────────────────────
 export class TradeScene extends Phaser.Scene {
   constructor() {
     super('TradeScene');
   }
 
   init(data) {
-    // data.npcId tells us which merchant we’re trading with
+    // Which merchant?
     this.npcId = data.npcId;
 
-    // Example price tables: in a real game, load from JSON or server.
-    // ‘sellPrice’ is how much merchant pays the player (buy‐from‐player).
-    // ‘buyPrice’  is how much merchant charges the player (sell‐to‐player).
+    // Set up price table:
+    // buyPrice = how much the player pays to BUY (player → merchant),
+    // sellPrice = how much merchant pays to BUY from player.
     this.priceTable = {
-      // For simplicity, same merchant1 has these prices:
-      potion:   { buyPrice: 10, sellPrice: 5 },
-      sword:    { buyPrice: 50, sellPrice: 25 },
-      healingHerb: { buyPrice: 3, sellPrice: 1 }
+      potion:      { buyPrice: 10, sellPrice: 5 },
+      sword:       { buyPrice: 50, sellPrice: 25 },
+      healingHerb: { buyPrice: 3,  sellPrice: 1 }
+      // …add more as needed…
     };
 
-    // Merchant’s stock (array of { iconKey, count })
-    // You can pull this from a server or a data file; hardcoded here for demo:
+    // Merchant’s initial stock (hard-coded for now)
     this.merchantStock = [
-      { iconKey: 'potion', count:  5 },
-      { iconKey: 'sword',  count:  2 }
+      { iconKey: 'potion', count: 5 },
+      { iconKey: 'sword',  count: 2 }
     ];
 
-    // Player’s inventory & currency come directly from MainScene
-    this.playerInv = this.scene.get('Main').playerInv;
-    // Let’s track player coins separately for easier buy/sell:
-    this.playerCoins = this.scene.get('Main').playerCoins || 100;
+    // Pull the player’s inventory & coin stack out of MainScene:
+    const main = this.scene.get('Main');
+    this.playerInv = main.playerInv;            // reference to the array
+    this.playerCoins = 0;
+
+    // Look for a “coin” stack in playerInv, extract its count, and remove that stack.
+    const coinIndex = this.playerInv.findIndex(item => item.iconKey === 'coin');
+    if (coinIndex >= 0) {
+      this.playerCoins = this.playerInv[coinIndex].count;
+      // remove the coin stack from inventory so we don’t draw it as an icon
+      this.playerInv.splice(coinIndex, 1);
+    }
+
+    // Now playerInv contains only non-coin items, and playerCoins has the actual coin count.
   }
 
   create() {
     const w = this.scale.width;
     const h = this.scale.height;
 
-    // Semi‐transparent backdrop
+    // 1) Draw a semi-transparent backdrop
     this.add.graphics()
       .fillStyle(0x000000, 0.8)
-      .fillRect(w/4, h/4, w/2, h/2);
+      .fillRect(w / 4, h / 4, w / 2, h / 2);
 
-    // Draw two panels: left=merchant, right=player
-    const panelW = 200, panelH = 300;
-    const leftX  = w/4 + 20;
-    const topY   = h/4 + 20;
+    // 2) Define slot size + padding so that drawMerchantSlots() and drawPlayerSlots() can use them:
+    this.slotSize    = 48;
+    this.slotPadding = 20;
+
+    // 3) Draw merchant panel (left) and player panel (right)
+    const panelW = 200;
+    const panelH = 300;
+    const leftX  = w / 4 + 20;
+    const topY   = h / 4 + 20;
+
+    // Merchant panel background
     this.merchantPanel = this.add.rectangle(
-      leftX + panelW/2, topY + panelH/2,
+      leftX + panelW / 2, topY + panelH / 2,
       panelW, panelH,
       0x333333, 0.9
     );
-    this.merchantTitle = this.add.text(leftX + 10, topY + 10,
-      `Shop with ${this.npcId}`, { fontSize: '18px', fill: '#fff' }
+    this.merchantTitle = this.add.text(
+      leftX + 10, topY + 10,
+      `Shop: ${this.npcId}`, { fontSize: '18px', fill: '#fff' }
     );
 
+    // Player panel background
+    const rightX = leftX + panelW + 40;
     this.playerPanel = this.add.rectangle(
-      w/4 + 20 + panelW + 40 + panelW/2,
-      topY + panelH/2,
+      rightX + panelW / 2, topY + panelH / 2,
       panelW, panelH,
       0x333333, 0.9
     );
     this.playerTitle = this.add.text(
-      w/4 + 20 + panelW + 40 + 10, topY + 10,
+      rightX + 10, topY + 10,
       'Your Inventory', { fontSize: '18px', fill: '#fff' }
     );
 
-    // Draw player “coin balance” above player panel
+    // 4) Draw “Coins:” text above the player panel
     this.coinText = this.add.text(
-      w/4 + 20 + panelW + 40 + panelW - 10,
-      topY - 10,
+      rightX + panelW - 10, topY - 10,
       `Coins: ${this.playerCoins}`, { fontSize: '16px', fill: '#ff0' }
     ).setOrigin(1, 0);
 
-    // Close button
-    this.closeBtn = this.add.text(w/2, h - 70, '[ Close ]', {
+    // 5) “Close” button
+    this.closeBtn = this.add.text(w / 2, h - 70, '[ Close ]', {
       fontSize: '18px', fill: '#ff4444'
-    }).setOrigin(0.5)
-      .setInteractive()
-      .on('pointerdown', () => this.close());
+    }).setOrigin(0.5).setInteractive();
+    this.closeBtn.on('pointerdown', () => this.close());
 
-    // Input keys for close
+    // 6) Allow ESC or “I” to close
     this.input.keyboard.on('keydown-ESC', () => this.close());
     this.input.keyboard.on('keydown-I',   () => this.close());
 
-    // Prepare groups to hold slots/icons
+    // 7) Prepare a group to hold all slot icons/text
     this.uiGroup = this.add.group();
 
-    // Panel coords for drop checks
+    // 8) Save panel coordinates for drop detection
     this.leftPanelX  = leftX;
     this.leftPanelY  = topY;
-    this.rightPanelX = w/4 + 20 + panelW + 40;
+    this.rightPanelX = rightX;
     this.rightPanelY = topY;
 
-    // Draw initial slots
+    // 9) Draw initial slots for merchant and player
     this.drawMerchantSlots();
     this.drawPlayerSlots();
 
-    // Enable drag & drop
+    // 10) Enable drag & drop on each icon
     this.input.setTopOnly(true);
     this.input.on('dragstart', (pointer, gameObject) => {
       this.children.bringToTop(gameObject);
@@ -111,66 +124,80 @@ export class TradeScene extends Phaser.Scene {
     });
   }
 
-  // Draw merchant stock slots
+  // ────────────────────────────────────────────────────────────────────────────
+  // Draw merchant stock slots/icons
+  // ────────────────────────────────────────────────────────────────────────────
   drawMerchantSlots() {
-    // Clear old
+    // Clear previous merchant icons
     if (this.merchantSlots) {
-      this.merchantSlots.forEach(s => s.icon.destroy());
-      this.merchantSlots = [];
-    } else {
-      this.merchantSlots = [];
+      this.merchantSlots.forEach(s => {
+        s.icon.destroy();
+        if (s.countText) s.countText.destroy();
+      });
     }
+    this.merchantSlots = [];
+
+    // We’ll lay out up to 2 columns × 3 rows (adjust as needed)
     const cols = 2, rows = 3;
     const startX = this.leftPanelX;
     const startY = this.leftPanelY + 40;
+
     for (let row = 0; row < rows; row++) {
       for (let col = 0; col < cols; col++) {
         const idx = row * cols + col;
         if (idx >= this.merchantStock.length) break;
-        const stock = this.merchantStock[idx];
-        const x = startX + col *  (this.slotSize + 40);
+        const stack = this.merchantStock[idx];
+        const x = startX + col * (this.slotSize + 40);
         const y = startY + row * (this.slotSize + 40);
 
         // Draw slot background
         const slotBg = this.add.rectangle(
-          x + this.slotSize/2, y + this.slotSize/2,
+          x + this.slotSize / 2, y + this.slotSize / 2,
           this.slotSize, this.slotSize,
           0x555555
         ).setStrokeStyle(2, 0xffffff);
         this.uiGroup.add(slotBg);
 
-        // Icon
-        const icon = this.add.image(x + this.slotSize/2, y + this.slotSize/2, stock.iconKey)
+        // Draw the icon
+        const icon = this.add.image(x + this.slotSize / 2, y + this.slotSize / 2, stack.iconKey)
           .setDisplaySize(32, 32)
           .setInteractive({ draggable: true })
           .setData('from', 'merchant')
           .setData('stockIndex', idx);
 
-        // Label with “count × price”
-        const priceInfo = this.priceTable[stock.iconKey];
-        const priceText = priceInfo ? priceInfo.buyPrice : '?';
-        const labelText = `${stock.count} × ${priceText}¢`;
-        const lbl = this.add.text(x + this.slotSize - 4, y + this.slotSize - 4, labelText, {
-          fontSize: '12px', fill: '#ff0'
-        }).setOrigin(1);
+        // Draw a label: “count × buyPrice”
+        const priceInfo = this.priceTable[stack.iconKey] || {};
+        const priceLabel = priceInfo.buyPrice != null ? priceInfo.buyPrice : '?';
+        const labelText = `${stack.count} × ${priceLabel}¢`;
+        const countText = this.add.text(
+          x + this.slotSize - 4, y + this.slotSize - 4,
+          labelText,
+          { fontSize: '12px', fill: '#ff0' }
+        ).setOrigin(1);
 
         this.uiGroup.add(icon);
-        this.uiGroup.add(lbl);
-
-        this.merchantSlots.push({ icon, stack: stock });
+        this.uiGroup.add(countText);
+        this.merchantSlots.push({ icon, stack, countText });
       }
     }
   }
 
-  // Draw player inventory slots, similar to InventoryScene
+  // ────────────────────────────────────────────────────────────────────────────
+  // Draw player inventory slots/icons (non-coin items only)
+  // ────────────────────────────────────────────────────────────────────────────
   drawPlayerSlots() {
     if (this.playerSlots) {
-      this.playerSlots.forEach(s => s.icon.destroy());
+      this.playerSlots.forEach(s => {
+        s.icon.destroy();
+        if (s.countText) s.countText.destroy();
+      });
     }
     this.playerSlots = [];
+
     const cols = 4, rows = 2;
     const startX = this.rightPanelX;
     const startY = this.rightPanelY + 40;
+
     for (let row = 0; row < rows; row++) {
       for (let col = 0; col < cols; col++) {
         const idx = row * cols + col;
@@ -179,22 +206,22 @@ export class TradeScene extends Phaser.Scene {
         const x = startX + col * (this.slotSize + 20);
         const y = startY + row * (this.slotSize + 20);
 
-        // Slot background
+        // Draw slot background
         const slotBg = this.add.rectangle(
-          x + this.slotSize/2, y + this.slotSize/2,
+          x + this.slotSize / 2, y + this.slotSize / 2,
           this.slotSize, this.slotSize,
           0x444444
         ).setStrokeStyle(2, 0xffffff);
         this.uiGroup.add(slotBg);
 
-        // Icon
-        const icon = this.add.image(x + this.slotSize/2, y + this.slotSize/2, stack.iconKey)
+        // Draw the icon
+        const icon = this.add.image(x + this.slotSize / 2, y + this.slotSize / 2, stack.iconKey)
           .setDisplaySize(32, 32)
           .setInteractive({ draggable: true })
           .setData('from', 'player')
           .setData('invIndex', idx);
 
-        // Count text
+        // Draw count text
         const countText = this.add.text(
           x + this.slotSize - 6, y + this.slotSize - 6,
           `${stack.count}`, { fontSize: '14px', fill: '#fff' }
@@ -202,31 +229,32 @@ export class TradeScene extends Phaser.Scene {
 
         this.uiGroup.add(icon);
         this.uiGroup.add(countText);
-        this.playerSlots.push({ icon, stack });
+        this.playerSlots.push({ icon, stack, countText });
       }
     }
   }
 
-  // Called on drag end to process buy/sell or revert
+  // ────────────────────────────────────────────────────────────────────────────
+  // Called on dragend: attempt buy/sell or snap back
+  // ────────────────────────────────────────────────────────────────────────────
   handleDrop(icon, dropX, dropY) {
     const from = icon.getData('from');
 
+    // If dragging a merchant icon into player panel → BUY
     if (from === 'merchant' && this.isInsidePlayerPanel(dropX, dropY)) {
-      // Attempt to BUY
       this.attemptBuy(icon.getData('stockIndex'));
       return;
     }
+    // If dragging a player icon into merchant panel → SELL
     if (from === 'player' && this.isInsideMerchantPanel(dropX, dropY)) {
-      // Attempt to SELL
       this.attemptSell(icon.getData('invIndex'));
       return;
     }
 
-    // Otherwise, just redraw to snap back
+    // Otherwise, snap everything back by re-drawing
     this.redrawAll();
   }
 
-  // Check drop zones
   isInsidePlayerPanel(x, y) {
     return (
       x >= this.rightPanelX &&
@@ -235,6 +263,7 @@ export class TradeScene extends Phaser.Scene {
       y <= this.rightPanelY + 300
     );
   }
+
   isInsideMerchantPanel(x, y) {
     return (
       x >= this.leftPanelX &&
@@ -244,40 +273,57 @@ export class TradeScene extends Phaser.Scene {
     );
   }
 
+  // ────────────────────────────────────────────────────────────────────────────
+  // Attempt to buy one unit of the merchantStock[stockIndex]
+  // ────────────────────────────────────────────────────────────────────────────
   attemptBuy(stockIndex) {
-    const stock = this.merchantStock[stockIndex];
-    if (!stock) return;
-
-    const priceInfo = this.priceTable[stock.iconKey];
-    if (!priceInfo) return;
-
+    const stack = this.merchantStock[stockIndex];
+    if (!stack) {
+      this.redrawAll();
+      return;
+    }
+    const priceInfo = this.priceTable[stack.iconKey] || {};
+    if (priceInfo.buyPrice == null) {
+      this.showFlashMessage('Cannot buy this!', 0xff4444);
+      this.redrawAll();
+      return;
+    }
     const cost = priceInfo.buyPrice;
     if (this.playerCoins < cost) {
-      // Not enough coins
       this.showFlashMessage('Not enough coins!', 0xff4444);
       this.redrawAll();
       return;
     }
 
-    // Deduct coins, add item to playerInv, reduce merchant stock
+    // Deduct coins, add item to playerInv, decrement merchant stock
     this.playerCoins -= cost;
-    this.addToInventory(this.playerInv, stock.iconKey, 1);
-    stock.count -= 1;
-    if (stock.count <= 0) {
+    this.addToInventory(this.playerInv, stack.iconKey, 1);
+    stack.count -= 1;
+    if (stack.count <= 0) {
       this.merchantStock.splice(stockIndex, 1);
     }
 
-    this.showFlashMessage(`Bought 1 ${stock.iconKey}`, 0x44ff44);
+    this.showFlashMessage(`Bought 1 ${stack.iconKey}`, 0x44ff44);
     this.redrawAll();
   }
 
+  // ────────────────────────────────────────────────────────────────────────────
+  // Attempt to sell one unit from playerInv[invIndex]
+  // ────────────────────────────────────────────────────────────────────────────
   attemptSell(invIndex) {
     const stack = this.playerInv[invIndex];
-    if (!stack) return;
+    if (!stack) {
+      this.redrawAll();
+      return;
+    }
+    const priceInfo = this.priceTable[stack.iconKey] || {};
+    if (priceInfo.sellPrice == null) {
+      this.showFlashMessage('Cannot sell this!', 0xff4444);
+      this.redrawAll();
+      return;
+    }
 
-    const priceInfo = this.priceTable[stack.iconKey];
-    if (!priceInfo) return;
-
+    // Pay the player, add to merchant stock, decrement player stack
     const payment = priceInfo.sellPrice;
     this.playerCoins += payment;
     this.addToInventory(this.merchantStock, stack.iconKey, 1);
@@ -290,6 +336,9 @@ export class TradeScene extends Phaser.Scene {
     this.redrawAll();
   }
 
+  // ────────────────────────────────────────────────────────────────────────────
+  // Utility: add qty of iconKey to arr (stacking if exists)
+  // ────────────────────────────────────────────────────────────────────────────
   addToInventory(arr, iconKey, qty) {
     const existing = arr.find(i => i.iconKey === iconKey);
     if (existing) {
@@ -299,7 +348,9 @@ export class TradeScene extends Phaser.Scene {
     }
   }
 
-  // Re‐render everything (slots, icons, coin text)
+  // ────────────────────────────────────────────────────────────────────────────
+  // Completely redraw merchant + player panels + coin text
+  // ────────────────────────────────────────────────────────────────────────────
   redrawAll() {
     this.uiGroup.clear(true, true);
     this.drawMerchantSlots();
@@ -307,19 +358,24 @@ export class TradeScene extends Phaser.Scene {
     this.coinText.setText(`Coins: ${this.playerCoins}`);
   }
 
-  // Small floating text at center of TradeScene for feedback
+  // ────────────────────────────────────────────────────────────────────────────
+  // Flash a brief message in the center for feedback
+  // ────────────────────────────────────────────────────────────────────────────
   showFlashMessage(text, color = 0xffffff) {
-    const w = this.scale.width, h = this.scale.height;
+    const w = this.scale.width;
+    const h = this.scale.height;
     const msg = this.add.text(w/2, h/2, text, {
       fontSize: '20px', fill: `#${color.toString(16)}` 
     }).setOrigin(0.5);
     this.time.delayedCall(1000, () => msg.destroy());
   }
 
+  // ────────────────────────────────────────────────────────────────────────────
+  // Close the trade, write back playerInv + playerCoins into MainScene, resume
+  // ────────────────────────────────────────────────────────────────────────────
   close() {
-    // Pass updated inventory & coin count back to MainScene
     const main = this.scene.get('Main');
-    main.playerInv = this.playerInv;
+    main.playerInv   = this.playerInv;
     main.playerCoins = this.playerCoins;
     this.scene.stop('TradeScene');
     main.scene.resume('Main');
