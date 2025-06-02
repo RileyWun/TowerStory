@@ -18,7 +18,10 @@ export default {
         },
         {
           text: 'Do you have a quest for me?',
-          action: scene => scene.dialogueTree.startDialogue('merchant1Quest'),
+          action: scene => {
+            console.log('Merchant choice “quest” clicked');
+            scene.dialogueTree.startDialogue('merchant1Quest');
+          },
           next: null
         },
         {
