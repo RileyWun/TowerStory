@@ -1,29 +1,28 @@
-// merchant1-quest-tree.js
 export default {
   start: 'questPrompt',
   nodes: {
     questPrompt: {
       type: 'choice',
-      question: 'I’m running low on potions—could you bring me 5 healing herbs?',
+      question: 'Could you fetch me 5 healing herbs for a potion?',
       options: [
         {
-          text: 'Absolutely, I’ll get them for you.',
+          text: 'Sure, I’ll get them.',
           action: scene => scene.questManager.accept('merchant1Quest'),
           next: 'accepted'
         },
         {
-          text: 'Sorry, I’m busy right now.',
+          text: 'Not right now.',
           next: 'declined'
         }
       ]
     },
     accepted: {
       type: 'text',
-      lines: ['Thank you — here is your reward!']
+      lines: ['Thank you—and here’s your potion reward!']
     },
     declined: {
       type: 'text',
-      lines: ['Very well. Come back if you change your mind.']
+      lines: ['Very well. Let me know if you change your mind.']
     }
   }
 };
