@@ -1,27 +1,5 @@
-/**
- * DialogueTreeManager
- * 
- * Handles conversation flows as dialogue trees with text and choice nodes.
- * Each tree is defined as:
- * {
- *   start: 'nodeKey',
- *   nodes: {
- *     nodeKey: {
- *       type: 'text',           // 'text' or 'choice'
- *       lines: ['line1', ...],  // for text nodes
- *       next: 'nextNodeKey'     // optional next node
- *     },
- *     nodeKey2: {
- *       type: 'choice',
- *       question: 'Question text',
- *       options: [
- *         { text: 'Option A', action: someCallback, next: 'nodeAfterA' },
- *         { text: 'Option B', next: 'nodeAfterB' }
- *       ]
- *     }
- *   }
- * }
- */
+// assets/js/dialogue-tree-manager.js
+
 export class DialogueTreeManager {
   constructor(scene) {
     this.scene = scene;
@@ -31,13 +9,16 @@ export class DialogueTreeManager {
 
   /**
    * Register a dialogue tree for a given npcId.
+   * @param {string} npcId
+   * @param {object} treeDefinition
    */
   registerTree(npcId, treeDefinition) {
     this.trees[npcId] = treeDefinition;
   }
 
   /**
-   * Start a dialogue for the specified NPC.
+   * Kick off a dialogue for the specified NPC.
+   * @param {string} npcId
    */
   startDialogue(npcId) {
     const tree = this.trees[npcId];
@@ -50,37 +31,43 @@ export class DialogueTreeManager {
   }
 
   /**
-   * Process a single node in the current tree.
+   * Internal: process a single node.
+   * @param {string} nodeKey
    */
   _runNode(nodeKey) {
     const node = this.currentTree.nodes[nodeKey];
     if (!node) return;
 
     if (node.type === 'text') {
-      // Launch text dialogue
+      // Show text, then advance on close.
       this.scene.scene.launch('DialogueScene', { lines: node.lines });
-      // After dialogue closes, move to next
+
+      // Once the DialogueScene emits 'dialogueClosed', move to the next node.
       this.scene.events.once('dialogueClosed', () => {
-        if (node.next) this._runNode(node.next);
+        if (node.next) {
+          this._runNode(node.next);
+        }
       });
     }
     else if (node.type === 'choice') {
-      const texts = node.options.map(o => o.text);
-      // Launch choice dialogue
-const texts = node.options.map(o => o.text);
- // launch built-in ChoiceScene directly
+      // Build an array of the option texts:
+      const optionsArray = node.options.map(opt => opt.text);
+
+      // Launch the ChoiceScene, passing question, options, and a callback.
       this.scene.scene.launch('ChoiceScene', {
         question: node.question,
-        options: texts,
+        options: optionsArray,
         callback: idx => {
-          const opt = node.options[idx];
-          // 1) run the action (if any)
-          if (opt.action) {
-            opt.action(this.scene);
+          const chosenOpt = node.options[idx];
+
+          // 1) Run the action, if one was provided:
+          if (chosenOpt.action) {
+            chosenOpt.action(this.scene);
           }
-          // 2) then follow the next link (if any)
-          if (opt.next) {
-            this._runNode(opt.next);
+
+          // 2) Then follow the 'next' pointer, if present:
+          if (chosenOpt.next) {
+            this._runNode(chosenOpt.next);
           }
         }
       });
