@@ -133,20 +133,16 @@
 
             // ─── (B) NPCs ─────────────────────────────────────────────
             else if (o.type === 'NPC') {
-              // We will let NPCManager pick up this object (it expects objects of type 'NPC')
-              // NPCManager.createFromObjects(objs) is called after this loop, so no extra code needed here.
+              // NPCs will be handled later by NPCManager
             }
 
             // ─── (C) MOB SPAWN (IMMEDIATE ONCE) ───────────────────────
             else if (o.type === 'MobSpawn') {
-              // If the Tiled object has width/height, treat it as a “spawn area”.
-              // Otherwise, spawn exactly at the object's center.
               const areaLeft   = o.x;
               const areaTop    = o.y;
               const areaWidth  = o.width  || this.tileW;
               const areaHeight = o.height || this.tileH;
 
-              // Read any custom properties (mobType, spawnRate, etc.)
               const props = (o.properties || []).reduce((acc, p) => {
                 acc[p.name] = p.value;
                 return acc;
@@ -154,23 +150,17 @@
               const mobType   = props.mobType   || 'slime';
               const spawnRate = props.spawnRate || 0.0;
 
-              // Right now, spawnRate = 0 → spawn immediately, once
               if (spawnRate === 0) {
-                // Pick a random (rx, ry) inside that rectangle:
-                const randX = Phaser.Math.FloatBetween(areaLeft,       areaLeft + areaWidth);
-                const randY = Phaser.Math.FloatBetween(areaTop,        areaTop  + areaHeight);
+                const randX = Phaser.Math.FloatBetween(areaLeft, areaLeft + areaWidth);
+                const randY = Phaser.Math.FloatBetween(areaTop,  areaTop  + areaHeight);
 
-                // Convert those world coords into isometric tile coords:
                 const isoX = randX / this.tileW;
                 const isoY = randY / this.tileH;
 
-                // Instantiate a new Enemy and add it to the group
                 const mob = new Enemy(this, isoX, isoY, mobType);
                 this.enemies.add(mob);
               }
-              // (If you later support spawnRate > 0, schedule a timed event here.)
             }
-
           }); // ← End of objs.forEach loop
 
           // 7) Now that all Tiled objects are handled, create the player:
@@ -184,21 +174,25 @@
 
           // 8) Set up keyboard movement and camera
           this.keys = this.input.keyboard.addKeys('W,A,S,D');
+
           // ─── REGISTER SPACE FOR MELEE ATTACK ──────────────────────────
           this.keys.SPACE = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
-          this.keys.SPACE.on('down', () => { this.playerAttack(); });
+          this.keys.SPACE.on('down', () => {
+            this.playerAttack();
+          });
+
           this.cameras.main.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
           this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
 
           // ─── (9) MANAGERS ──────────────────────────────────────────
-          this.npcManager    = new NPCManager(this);
+          this.npcManager   = new NPCManager(this);
           this.npcManager.createFromObjects(objs);
 
-          this.questManager  = new QuestManager(this);
-          this.dialogueTree  = new DialogueTreeManager(this);
-          this.tradeManager  = new TradeManager(this);
+          this.questManager = new QuestManager(this);
+          this.dialogueTree = new DialogueTreeManager(this);
+          this.tradeManager = new TradeManager(this);
 
-          // (9a) Load each quest dialog tree first (so quest→dialogue is available immediately)
+          // (9a) Load each quest dialog tree first
           this.questManager.quests.forEach(quest => {
             if (!quest.dialogueFile) return;
             import(`./assets/js/dialogues/${quest.dialogueFile}`)
@@ -306,8 +300,11 @@
           }
 
           const tx = Math.floor(nx), ty = Math.floor(ny);
-          if (nx >= 0 && nx < this.mapW && ny >= 0 && ny < this.mapH &&
-              this.floorData[ty][tx] && !this.collisionData[ty][tx]) {
+          if (
+            nx >= 0 && nx < this.mapW &&
+            ny >= 0 && ny < this.mapH &&
+            this.floorData[ty][tx] && !this.collisionData[ty][tx]
+          ) {
             this.playerIsoX = nx;
             this.playerIsoY = ny;
           }
@@ -321,29 +318,29 @@
           const sx = (this.playerIsoX - this.playerIsoY)*(this.tileW/2) + this.offsetX;
           const sy = (this.playerIsoX + this.playerIsoY)*(this.tileH/2) + this.offsetY;
           this.player.setPosition(sx, sy).setDepth(sy);
-    }
-          // ─── PLAYER MELEE ATTACK (SPACE) ──────────────────────────────
-          playerAttack() {
-        // Screen‐space position of player
-          const px = this.player.x;
-          const py = this.player.y;
-
-        // Check every enemy in the group
-          this.enemies.getChildren().forEach(enemy => {
-          if (!enemy || !enemy.active) return;
-        // distance in screen pixels
-        const dist = Phaser.Math.Distance.Between(px, py, enemy.x, enemy.y);
-        // hit if within enemy.hitRadius + a small “reach” (16px)
-        if (dist < enemy.hitRadius + 16) {
-        enemy.takeDamage(1);
-        }
-    });
-  }
 
           // ─── Update all enemies every frame ────────────────────────
           this.enemies.getChildren().forEach(enemy => {
             if (enemy && enemy.preUpdate) {
               enemy.preUpdate(time, delta);
+            }
+          });
+        } // End of update()
+
+        // ─── PLAYER MELEE ATTACK (SPACE) ──────────────────────────────
+        playerAttack() {
+          // Screen‐space position of player:
+          const px = this.player.x;
+          const py = this.player.y;
+
+          // Check every enemy in the group:
+          this.enemies.getChildren().forEach(enemy => {
+            if (!enemy || !enemy.active) return;
+            // distance in screen pixels:
+            const dist = Phaser.Math.Distance.Between(px, py, enemy.x, enemy.y);
+            // hit if within enemy.hitRadius + a small “reach” (16px)
+            if (dist < enemy.hitRadius + 16) {
+              enemy.takeDamage(1);
             }
           });
         }
