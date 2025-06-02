@@ -119,7 +119,21 @@
               "value": "merchant1"
             }
           ]
-        }
+        },
+       {
+         "id": 5,
+         "name": "MobSpawn1",
+         "type": "MobSpawn",
+         "x": 428,
+         "y": 456,
+         "width": 64,
+         "height": 64,
+         "visible": true,
+         "properties": [
+           { "name": "mobType",   "type": "string", "value": "slime" },
+           { "name": "spawnRate", "type": "float",  "value": 0.0 }
+         ]
+       }
       ]
     }
   ],
