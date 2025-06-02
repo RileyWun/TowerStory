@@ -323,6 +323,7 @@
           const sx = (this.playerIsoX - this.playerIsoY)*(this.tileW/2) + this.offsetX;
           const sy = (this.playerIsoX + this.playerIsoY)*(this.tileH/2) + this.offsetY;
           this.player.setPosition(sx, sy).setDepth(sy);
+          
           playerAttack() {
           const px = this.player.x;
           const py = this.player.y;
