@@ -157,7 +157,8 @@
                 const isoX = randX / this.tileW;
                 const isoY = randY / this.tileH;
 
-                const mob = new Enemy(this, isoX, isoY, mobType);
+                const randomLevel = Phaser.Math.Between(1, 5);
+                const mob = new Enemy(this, isoX, isoY, mobType, randomLevel);
                 this.enemies.add(mob);
               }
             }
