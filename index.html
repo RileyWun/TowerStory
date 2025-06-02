@@ -247,9 +247,9 @@ this.npcManager.npcs.forEach(npc => {
             const txt=this.add.text(w/4+40,h/4+60+idx*30,opt,{fontSize:'16px',fill:'#ff0'})
               .setInteractive();
             txt.on('pointerdown',()=>{
-              if(this.callback) this.callback(idx);
               this.scene.stop('ChoiceScene');
               this.scene.resume('Main');
+              if(this.callback) this.callback(idx);
             });
           });
         }
