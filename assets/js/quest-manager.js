@@ -21,16 +21,16 @@ export class QuestManager {
         reward: 'coin',
         rewardCount: 5       // ← added comma below
       },
-      {
-        id: 'merchant1Quest',
-        npcId: 'merchant1',
-        prompt: 'I’m running low on potions—could you bring me 5 healing herbs?',
-        acceptText: 'Absolutely, I’ll get them for you.',
-        declineText: 'Sorry, I’m busy right now.',
-        reward: 'potion',
-        rewardCount: 1,
-        dialogueFile: 'merchant1-quest-tree.js'
-      }
+{
+  id: 'merchant1Quest',
+  npcId: 'merchant1',
+  prompt: 'I’m running low on potions—could you bring me 5 healing herbs?',
+  acceptText: 'Absolutely, I’ll get them for you.',
+  declineText: 'Sorry, I’m busy right now.',
+  reward: 'potion',
+  rewardCount: 1,
+  dialogueFile: 'merchant1-quest-tree.js'
+}
     ];
     // Add more quests here if needed
   }
