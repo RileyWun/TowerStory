@@ -250,7 +250,89 @@ this.questManager.quests.forEach(quest => {
           });
         }
       }
+// … above your InventoryScene.create() …
 
+class InventoryScene extends Phaser.Scene {
+  constructor(){ super('InventoryScene'); }
+
+  init(data){
+    this.playerInv = data.playerInv;
+    this.chestInv  = data.chestInv || [];
+    this.showChest = data.chestInv !== null;
+  }
+  // ← add this stub so redraw() actually exists
+  redraw() {
+    // no‐op for now (or move your slot‐drawing logic here)
+  }
+
+  // ← also add an onDragEnd stub so dragend doesn’t break
+  onDragEnd(pointer, gameObject) {
+    // no‐op (or put cleanup/redraw logic here)
+  }
+
+  create(){
+    const w = this.scale.width;
+    this.pw = 200; this.ph = 300;
+    this.leftPanel = new Phaser.Geom.Rectangle(50,50,this.pw,this.ph);
+    if (this.showChest) {
+      this.rightPanel = new Phaser.Geom.Rectangle(w - 50 - this.pw, 50, this.pw, this.ph);
+    }
+
+    this.uiGroup = this.add.group();
+
+    this.leftZone = this.add.zone(this.leftPanel.x, this.leftPanel.y, this.pw, 20)
+      .setOrigin(0)
+      .setInteractive();
+    if (this.showChest) {
+      this.rightZone = this.add.zone(this.rightPanel.x, this.rightPanel.y, this.pw, 20)
+        .setOrigin(0)
+        .setInteractive();
+    }
+
+    const draggableZones = [ this.leftZone ];
+    if (this.showChest) {
+      draggableZones.push(this.rightZone);
+    }
+    this.input.setDraggable(draggableZones);
+
+    this.input.on('drag', (pointer, gameObject, dx, dy) => {
+      if (gameObject === this.leftZone) {
+        this.leftPanel.x = dx; 
+        this.leftZone.x  = dx;
+        this.leftPanel.y = dy; 
+        this.leftZone.y  = dy;
+        this.redraw();
+      }
+      else if (this.showChest && gameObject === this.rightZone) {
+        this.rightPanel.x = dx; 
+        this.rightZone.x  = dx;
+        this.rightPanel.y = dy; 
+        this.rightZone.y  = dy;
+        this.redraw();
+      }
+      else {
+        gameObject.x = dx;
+        gameObject.y = dy;
+      }
+    });
+
+    // ← attach the stub so it exists
+    this.input.on('dragend', this.onDragEnd, this);
+
+    this.input.keyboard.on('keydown-ESC', () => this.close());
+    this.input.keyboard.on('keydown-I',   () => this.close());
+
+    // ← now redraw() is a no-op instead of undefined
+    this.redraw();
+  }
+
+  close(){
+    this.scene.stop('InventoryScene');
+    this.scene.resume('Main');
+  }
+  
+  // … any other methods (drawSlots, etc.) can either move into redraw() or remain unchanged …
+}
       // Inventory Scene
       class InventoryScene extends Phaser.Scene {
         constructor(){ super('InventoryScene'); }
