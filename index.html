@@ -256,79 +256,119 @@ this.questManager.quests.forEach(quest => {
       
 // Inventory Scene
 class InventoryScene extends Phaser.Scene {
-  constructor(){ super('InventoryScene'); }
+  constructor() {
+    super('InventoryScene');
+  }
 
-  init(data){
-    this.playerInv = data.playerInv;
-    this.chestInv  = data.chestInv || [];
+  init(data) {
+    this.playerInv = data.playerInv;          // array of {iconKey, count}
+    this.chestInv  = data.chestInv || [];     // array of {iconKey, count}
     this.showChest = data.chestInv !== null;
   }
 
-  // stub so redraw() exists
-  redraw() {
-    // move your slot‐drawing code here when you have it
-  }
-
-  // stub so dragend listener has a function
-  onDragEnd(pointer, gameObject) {
-    // no‐op for now (or put post‐drag cleanup here)
-  }
-
-  create(){
+  create() {
     const w = this.scale.width;
-    this.pw = 200; this.ph = 300;
-    this.leftPanel = new Phaser.Geom.Rectangle(50,50,this.pw,this.ph);
+    const h = this.scale.height;
+
+    // 1) draw a semi-transparent backdrop
+    this.add.graphics()
+      .fillStyle(0x000000, 0.7)
+      .fillRect(50, 50, w - 100, h - 100);
+
+    // 2) draw two panels: left for player, right for chest (if showChest)
+    const panelW = 200, panelH = 300;
+    this.playerPanel = this.add.rectangle(80 + panelW/2, 80 + panelH/2, panelW, panelH, 0x222222, 0.9);
+    this.playerTitle = this.add.text(80 + 10, 80 + 10, 'Your Inventory', { fontSize: '16px', fill: '#fff' });
+
     if (this.showChest) {
-      this.rightPanel = new Phaser.Geom.Rectangle(w - 50 - this.pw, 50, this.pw, this.ph);
+      this.chestPanel = this.add.rectangle(w - 80 - panelW/2, 80 + panelH/2, panelW, panelH, 0x222222, 0.9);
+      this.chestTitle = this.add.text(w - 80 - panelW + 10, 80 + 10, 'Chest Contents', { fontSize: '16px', fill: '#fff' });
     }
 
-    this.uiGroup = this.add.group();
-
-    this.leftZone = this.add.zone(this.leftPanel.x, this.leftPanel.y, this.pw, 20)
-      .setOrigin(0)
+    // 3) draw a “Close” button at bottom
+    this.closeBtn = this.add.text(w/2, h - 70, '[ Close ]', { fontSize: '18px', fill: '#ff4444' })
+      .setOrigin(0.5)
       .setInteractive();
+    this.closeBtn.on('pointerdown', () => this.close());
+
+    // 4) set up simple slots for playerInv (2 columns × 5 rows) under playerPanel
+    this.drawPlayerSlots();
+
+    // 5) set up simple slots for chestInv if needed
     if (this.showChest) {
-      this.rightZone = this.add.zone(this.rightPanel.x, this.rightPanel.y, this.pw, 20)
-        .setOrigin(0)
-        .setInteractive();
+      this.drawChestSlots();
     }
 
-    const draggableZones = [ this.leftZone ];
-    if (this.showChest) {
-      draggableZones.push(this.rightZone);
-    }
-    this.input.setDraggable(draggableZones);
-
-    this.input.on('drag', (pointer, gameObject, dx, dy) => {
-      if (gameObject === this.leftZone) {
-        this.leftPanel.x = dx;
-        this.leftZone.x  = dx;
-        this.leftPanel.y = dy;
-        this.leftZone.y  = dy;
-        this.redraw();
-      }
-      else if (this.showChest && gameObject === this.rightZone) {
-        this.rightPanel.x = dx;
-        this.rightZone.x  = dx;
-        this.rightPanel.y = dy;
-        this.rightZone.y  = dy;
-        this.redraw();
-      }
-      else {
-        gameObject.x = dx;
-        gameObject.y = dy;
-      }
-    });
-
-    this.input.on('dragend', this.onDragEnd, this);
-
+    // 6) allow ESC or “I” to close
     this.input.keyboard.on('keydown-ESC', () => this.close());
     this.input.keyboard.on('keydown-I',   () => this.close());
-
-    this.redraw();
   }
 
-  close(){
+  // Draw player inventory slots/icons
+  drawPlayerSlots() {
+    const startX = 80 + 20;
+    const startY = 80 + 40;
+    const slotSize = 48;
+    const cols = 2;
+    const rows = 5;
+
+    this.playerInv.forEach((stack, idx) => {
+      const col = idx % cols;
+      const row = Math.floor(idx / cols);
+      if (row >= rows) return; // only 2×5 = 10 slots
+
+      const x = startX + col * (slotSize + 10);
+      const y = startY + row * (slotSize + 10);
+
+      // draw a slot background
+      this.add.rectangle(x + slotSize/2, y + slotSize/2, slotSize, slotSize, 0x444444).setStrokeStyle(2, 0xffffff);
+
+      // if there’s an icon, draw it
+      if (stack.iconKey) {
+        this.add.image(x + slotSize/2, y + slotSize/2, stack.iconKey)
+          .setDisplaySize(32, 32)
+          .setDepth(1);
+        // draw count
+        this.add.text(x + slotSize - 12, y + slotSize - 12, `${stack.count}`, { fontSize: '14px', fill: '#fff' })
+          .setDepth(2)
+          .setOrigin(1);
+      }
+    });
+  }
+
+  // Draw chest inventory slots/icons (same layout, on the right)
+  drawChestSlots() {
+    const w = this.scale.width;
+    const startX = w - 80 - 200 + 20; // right panel’s left + padding
+    const startY = 80 + 40;
+    const slotSize = 48;
+    const cols = 2;
+    const rows = 5;
+
+    this.chestInv.forEach((stack, idx) => {
+      const col = idx % cols;
+      const row = Math.floor(idx / cols);
+      if (row >= rows) return;
+
+      const x = startX + col * (slotSize + 10);
+      const y = startY + row * (slotSize + 10);
+
+      // draw slot background
+      this.add.rectangle(x + slotSize/2, y + slotSize/2, slotSize, slotSize, 0x444444).setStrokeStyle(2, 0xffffff);
+
+      // draw icon if present
+      if (stack.iconKey) {
+        this.add.image(x + slotSize/2, y + slotSize/2, stack.iconKey)
+          .setDisplaySize(32, 32)
+          .setDepth(1);
+        this.add.text(x + slotSize - 12, y + slotSize - 12, `${stack.count}`, { fontSize: '14px', fill: '#fff' })
+          .setDepth(2)
+          .setOrigin(1);
+      }
+    });
+  }
+
+  close() {
     this.scene.stop('InventoryScene');
     this.scene.resume('Main');
   }
