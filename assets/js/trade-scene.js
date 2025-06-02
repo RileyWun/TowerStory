@@ -311,29 +311,43 @@ export class TradeScene extends Phaser.Scene {
   // Attempt to sell one unit from playerInv[invIndex]
   // ────────────────────────────────────────────────────────────────────────────
   attemptSell(invIndex) {
-    const stack = this.playerInv[invIndex];
-    if (!stack) {
-      this.redrawAll();
-      return;
-    }
-    const priceInfo = this.priceTable[stack.iconKey] || {};
-    if (priceInfo.sellPrice == null) {
-      this.showFlashMessage('Cannot sell this!', 0xff4444);
-      this.redrawAll();
-      return;
-    }
+const stack = this.playerInv[invIndex];
+   if (!stack) {
+     this.redrawAll();
+     return;
+   }
+   const priceInfo = this.priceTable[stack.iconKey] || {};
+   if (priceInfo.sellPrice == null) {
+     this.showFlashMessage('Cannot sell this!', 0xff4444);
+     this.redrawAll();
+     return;
+   }
 
-    // Pay the player, add to merchant stock, decrement player stack
-    const payment = priceInfo.sellPrice;
-    this.playerCoins += payment;
-    this.addToInventory(this.merchantStock, stack.iconKey, 1);
-    stack.count -= 1;
-    if (stack.count <= 0) {
-      this.playerInv.splice(invIndex, 1);
-    }
+   // Instead of selling exactly 1, launch QuantityScene so user can pick [1..stack.count]
+   const maxCount  = stack.count;
+   const sellPrice = priceInfo.sellPrice;
 
-    this.showFlashMessage(`Sold 1 ${stack.iconKey}`, 0x44ff44);
-    this.redrawAll();
+   // Pause this TradeScene before launching quantity selector:
+   this.scene.pause('TradeScene');
+   this.scene.launch('QuantityScene', {
+     iconKey:   stack.iconKey,
+     maxCount:  maxCount,
+     sellPrice: sellPrice,
+     callback: selectedQty => {
+       // When user confirms, actually sell 'selectedQty' items:
+       const totalPayment = sellPrice * selectedQty;
+       this.playerCoins += totalPayment;
+       // Move sold items into merchantStock:
+       this.addToInventory(this.merchantStock, stack.iconKey, selectedQty);
+       // Decrease or remove from playerInv:
+       stack.count -= selectedQty;
+       if (stack.count <= 0) {
+         this.playerInv.splice(invIndex, 1);
+       }
+       this.showFlashMessage(`Sold ${selectedQty} ${stack.iconKey}`, 0x44ff44);
+       this.redrawAll();
+     }
+   });
   }
 
   // ────────────────────────────────────────────────────────────────────────────
