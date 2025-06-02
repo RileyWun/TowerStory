@@ -115,24 +115,22 @@
           this.dialogueTree=new DialogueTreeManager(this);
           this.tradeManager=new TradeManager(this);
 
-// 1) Load each NPC's main dialogue tree:
+// 1) main NPC trees
 this.npcManager.npcs.forEach(npc => {
   import(`./assets/js/dialogues/${npc.npcId}-tree.js`)
     .then(mod => this.dialogueTree.registerTree(npc.npcId, mod.default))
     .catch(err => console.warn(`No dialogue module for ${npc.npcId}`, err));
 });
 
-// 2) Load each quest dialogue tree (only for quests that provided a dialogueFile)
+// 2) quest trees, only for quests that have a dialogueFile
 this.questManager.quests.forEach(quest => {
-  if (!quest.dialogueFile) return;  // skip quests without a file
+  if (!quest.dialogueFile) return;
   import(`./assets/js/dialogues/${quest.dialogueFile}`)
     .then(mod => {
       // register under the quest’s own ID, e.g. "merchant1Quest"
       this.dialogueTree.registerTree(quest.id, mod.default);
     })
-    .catch(err => {
-      console.warn(`Failed to load quest tree for ${quest.id}`, err);
-    });
+    .catch(err => console.warn(`Failed to load quest tree for ${ quest.id }`, err));
 });
           // Conversation & interactions
           this.npcManager.enableConversations('F', npc =>
@@ -261,6 +259,9 @@ this.questManager.quests.forEach(quest => {
           this.chestInv=data.chestInv||[];
           this.showChest=data.chestInv!==null;
         }
+      onDragEnd(pointer, gameObject) {
+    // you can leave this empty, or re-draw/UI logic here
+  }
         create(){
           const w=this.scale.width;
           this.pw=200; this.ph=300;
