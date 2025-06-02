@@ -67,15 +67,21 @@ export class DialogueTreeManager {
     else if (node.type === 'choice') {
       const texts = node.options.map(o => o.text);
       // Launch choice dialogue
+const texts = node.options.map(o => o.text);
+ // launch built-in ChoiceScene directly
       this.scene.scene.launch('ChoiceScene', {
         question: node.question,
         options: texts,
         callback: idx => {
           const opt = node.options[idx];
-          // Perform optional action
-          if (opt.action) opt.action(this.scene);
-          // Then advance to next node
-          if (opt.next) this._runNode(opt.next);
+          // 1) run the action (if any)
+          if (opt.action) {
+            opt.action(this.scene);
+          }
+          // 2) then follow the next link (if any)
+          if (opt.next) {
+            this._runNode(opt.next);
+          }
         }
       });
     }
