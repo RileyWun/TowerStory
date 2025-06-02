@@ -1,7 +1,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Trade Scene (drag‐&‐drop between merchant and player, with pricing)
 // ─────────────────────────────────────────────────────────────────────────────
-class TradeScene extends Phaser.Scene {
+export class TradeScene extends Phaser.Scene {
   constructor() {
     super('TradeScene');
   }
