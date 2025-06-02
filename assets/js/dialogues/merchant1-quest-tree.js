@@ -1,3 +1,4 @@
+// assets/js/dialogues/merchant1-quest-tree.js
 export default {
   start: 'questPrompt',
   nodes: {
@@ -7,7 +8,10 @@ export default {
       options: [
         {
           text: 'Sure, I’ll get them.',
-          action: scene => scene.questManager.accept('merchant1Quest'),
+          action: scene => {
+            console.log('Merchant quest accepted');
+            scene.questManager.accept('merchant1Quest');
+          },
           next: 'accepted'
         },
         {
