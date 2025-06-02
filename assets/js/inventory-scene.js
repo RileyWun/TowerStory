@@ -1,7 +1,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Inventory Scene (drag‐&‐drop between player and chest slots)
 // ─────────────────────────────────────────────────────────────────────────────
-class InventoryScene extends Phaser.Scene {
+export class InventoryScene extends Phaser.Scene {
   constructor() {
     super('InventoryScene');
   }
