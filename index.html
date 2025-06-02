@@ -35,6 +35,8 @@
     import { QuestManager } from './assets/js/quest-manager.js';
     import { DialogueTreeManager } from './assets/js/dialogue-tree-manager.js';
     import { TradeManager } from './assets/js/trade-manager.js';
+    import { TradeScene }      from './assets/js/trade-scene.js';
+    import { InventoryScene }  from './assets/js/inventory-scene.js';
 
     window.addEventListener('load', () => {
       class BootScene extends Phaser.Scene {
@@ -255,56 +257,6 @@ this.npcManager.npcs.forEach(npc => {
         }
       }
       
-// Inventory Scene
-class InventoryScene extends Phaser.Scene {
-  constructor() {
-    super('InventoryScene');
-  }
-
-  init(data) {
-    this.playerInv = data.playerInv;          // array of {iconKey, count}
-    this.chestInv  = data.chestInv || [];     // array of {iconKey, count}
-    this.showChest = data.chestInv !== null;
-  }
-
-  create() {
-    const w = this.scale.width;
-    const h = this.scale.height;
-
-    // 1) draw a semi-transparent backdrop
-    this.add.graphics()
-      .fillStyle(0x000000, 0.7)
-      .fillRect(50, 50, w - 100, h - 100);
-
-    // 2) draw two panels: left for player, right for chest (if showChest)
-    const panelW = 200, panelH = 300;
-    this.playerPanel = this.add.rectangle(80 + panelW/2, 80 + panelH/2, panelW, panelH, 0x222222, 0.9);
-    this.playerTitle = this.add.text(80 + 10, 80 + 10, 'Your Inventory', { fontSize: '16px', fill: '#fff' });
-
-    if (this.showChest) {
-      this.chestPanel = this.add.rectangle(w - 80 - panelW/2, 80 + panelH/2, panelW, panelH, 0x222222, 0.9);
-      this.chestTitle = this.add.text(w - 80 - panelW + 10, 80 + 10, 'Chest Contents', { fontSize: '16px', fill: '#fff' });
-    }
-
-    // 3) draw a “Close” button at bottom
-    this.closeBtn = this.add.text(w/2, h - 70, '[ Close ]', { fontSize: '18px', fill: '#ff4444' })
-      .setOrigin(0.5)
-      .setInteractive();
-    this.closeBtn.on('pointerdown', () => this.close());
-
-    // 4) set up simple slots for playerInv (2 columns × 5 rows) under playerPanel
-    this.drawPlayerSlots();
-
-    // 5) set up simple slots for chestInv if needed
-    if (this.showChest) {
-      this.drawChestSlots();
-    }
-
-    // 6) allow ESC or “I” to close
-    this.input.keyboard.on('keydown-ESC', () => this.close());
-    this.input.keyboard.on('keydown-I',   () => this.close());
-  }
-
   // Draw player inventory slots/icons
   drawPlayerSlots() {
     const startX = 80 + 20;
@@ -375,38 +327,23 @@ class InventoryScene extends Phaser.Scene {
   }
 }
 
-      // Trade Scene (placeholder UI)
-  class TradeScene extends Phaser.Scene {
-  constructor(){ super('TradeScene'); }
-  init(data) {
-    this.npcId = data.npcId;
-  }
-  create(){
-    const w = this.scale.width, h = this.scale.height;
-    // dark backdrop
-    this.add.graphics()
-      .fillStyle(0x000000, 0.8)
-      .fillRect(w/4, h/4, w/2, h/2);
-    // simple trade title
-    this.add.text(w/4 + 20, h/4 + 20,
-      `Trading with ${this.npcId}`, { fontSize:'18px', fill:'#fff' }
-    );
-    // close on ESC
-    this.input.keyboard.once('keydown-ESC', () => {
-      this.scene.stop('TradeScene');
-      this.scene.resume('Main');
-    });
-  }
-}
+const config = {
+  type: Phaser.AUTO,
+  parent: 'game-container',
+  scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
+  physics: { default: 'arcade' },
+  scene: [
+    BootScene,
+    PreloadScene,
+    MainScene,
+    DialogueScene,
+    ChoiceScene,
+    TradeScene,
+    InventoryScene
+  ]
+};
 
-      const config={
-        type:Phaser.AUTO,
-        parent:'game-container',
-        scale:{mode:Phaser.Scale.FIT,autoCenter:Phaser.Scale.CENTER_BOTH},
-        physics:{default:'arcade'},
-        scene:[BootScene,PreloadScene,MainScene,DialogueScene,ChoiceScene,TradeScene,InventoryScene]
-      };
-      new Phaser.Game(config);
+new Phaser.Game(config);
     });
   </script>
 </body>
