@@ -5,10 +5,10 @@ export class QuantityScene extends Phaser.Scene {
 
   init(data) {
     // data = {
-    //   iconKey:   (string),
-    //   maxCount:  (integer),
-    //   sellPrice: (integer),
-    //   callback:  (function(quantity))
+    //   iconKey:   (string),   // e.g. 'potion'
+    //   maxCount:  (integer),  // e.g. 7
+    //   sellPrice: (integer),  // e.g. 5  (cents)
+    //   callback:  (function(quantity))  // called when “Confirm” is pressed
     // }
     this.iconKey   = data.iconKey;
     this.maxCount  = data.maxCount;
@@ -20,23 +20,23 @@ export class QuantityScene extends Phaser.Scene {
     const W = this.scale.width;
     const H = this.scale.height;
 
-    // (1) Compute the box’s top‐left corner so box is centered on screen:
+    // (1) Dimensions for the dialog box
     const boxW = 300;
     const boxH = 160;
-    const boxX = (W - boxW) / 2;
-    const boxY = (H - boxH) / 2;
+    const boxX = (W - boxW) / 2;    // center horizontally
+    const boxY = (H - boxH) / 2;    // center vertically
 
-    // (2) Draw the semi-opaque backdrop
+    // (2) Draw the full‐screen semi‐opaque backdrop
     this.add.graphics()
       .fillStyle(0x000000, 0.7)
       .fillRect(0, 0, W, H);
 
-    // (3) Draw the box itself (with a white stroke):
+    // (3) Draw the dialog box (dark grey with white stroke)
     this.add
       .rectangle(boxX + boxW/2, boxY + boxH/2, boxW, boxH, 0x333333, 0.95)
       .setStrokeStyle(2, 0xffffff);
 
-    // (4) Title: “Sell how many [iconKey]?”
+    // (4) “Sell how many [item]?” at top
     this.add.text(
       boxX + 20,
       boxY + 20,
@@ -44,8 +44,8 @@ export class QuantityScene extends Phaser.Scene {
       { fontSize: '18px', fill: '#ffffff' }
     );
 
-    // (5) Numeric “Qty: X” immediately under the title
-    this.selected = 1; // default selection
+    // (5) “Qty: X” below
+    this.selected = 1;
     this.displayText = this.add.text(
       boxX + 20,
       boxY + 46,
@@ -53,48 +53,61 @@ export class QuantityScene extends Phaser.Scene {
       { fontSize: '16px', fill: '#ffcc00' }
     );
 
-    // (6) Draw the slider line, but inset by knobRadius on each side
+    // (6) Compute slider geometry **relative to boxX, boxY**
     const knobRadius = 8;
-    const padding    = 20; // original padding from the box edge
+    const padding    = 20;         // distance from box’s left/right edge
+    const sliderY    = 80;         // vertical position INSIDE the box (relative)
+    const lineStartX = padding + knobRadius;             // offset inside box
+    const lineEndX   = boxW - padding - knobRadius;      // offset inside box
 
-    // The “usable” endpoints for the **knob’s center**:
-    const minX = boxX + padding + knobRadius;
-    const maxX = boxX + boxW - padding - knobRadius;
-    const lineY = boxY + 80;
+    // Draw a white line from (lineStartX, sliderY) → (lineEndX, sliderY), 
+    // but offset everything by (boxX, boxY):
+    this.add.line(
+      boxX,          // worldX of the line’s origin
+      boxY,          // worldY of the line’s origin
+      lineStartX,    // local x1 (inside the box)
+      sliderY,       // local y1
+      lineEndX,      // local x2 (inside the box)
+      sliderY,       // local y2
+      0xffffff       // stroke color
+    )
+    .setOrigin(0, 0)
+    .setLineWidth(2);
 
-    // Draw a white line from (minX, lineY) to (maxX, lineY):
-    this.add.line(0, 0, minX, lineY, maxX, lineY, 0xffffff)
-      .setLineWidth(2);
+    // (7) Create the draggable knob at the LEFT endpoint initially:
+    const knobWorldY = boxY + sliderY; 
+    const knobWorldX = boxX + lineStartX; // this will be the “minX” in world coords
 
-    // (7) Create a draggable knob (an 8px‐radius circle) at minX initially:
-    this.knob = this.add.circle(minX, lineY, knobRadius, 0xffcc00)
-      .setInteractive({ draggable: true })
-      .setData('minX', minX)
-      .setData('maxX', maxX);
+    this.knob = this.add.circle(knobWorldX, knobWorldY, knobRadius, 0xffcc00)
+      .setInteractive({ draggable: true });
 
-    // (8) Handle drag: clamp X to [minX, maxX], then recompute “selected”:
+    // Store the absolute min and max X for the knob’s center:
+    this.knob.setData('minX', boxX + lineStartX);
+    this.knob.setData('maxX', boxX + lineEndX);
+
+    // (8) Enable dragging and clamp X to [minX..maxX]:
     this.input.setDraggable(this.knob);
     this.input.on('drag', (pointer, knob, dragX, dragY) => {
       const left  = knob.getData('minX');
       const right = knob.getData('maxX');
 
-      // Clamp dragX to [left, right]
-      let newX = Phaser.Math.Clamp(dragX, left, right);
-      knob.x = newX;
+      // Clamp dragX to within [left, right]:
+      const clampedX = Phaser.Math.Clamp(dragX, left, right);
+      knob.x = clampedX;
 
-      // Compute fraction (0.0 → 1.0) across the line:
-      const frac = (newX - left) / (right - left);
+      // Figure out what fraction of the slider this is:
+      const frac = (clampedX - left) / (right - left);
 
-      // Map to [1 .. maxCount], rounding to nearest integer:
-      let sel = Math.round(frac * (this.maxCount - 1)) + 1;
-      sel = Phaser.Math.Clamp(sel, 1, this.maxCount);
-      this.selected = sel;
+      // Map fraction → [1..maxCount], rounding to nearest integer:
+      let qty = Math.round(frac * (this.maxCount - 1)) + 1;
+      qty = Phaser.Math.Clamp(qty, 1, this.maxCount);
+      this.selected = qty;
 
-      // Update the “Qty:” text
+      // Update “Qty: …” display
       this.displayText.setText(`Qty: ${this.selected}`);
     });
 
-    // (9) Show “Price each: …¢” under the slider
+    // (9) Show “Price each: X¢” under the slider:
     this.add.text(
       boxX + 20,
       boxY + 110,
@@ -102,7 +115,7 @@ export class QuantityScene extends Phaser.Scene {
       { fontSize: '16px', fill: '#ffffff' }
     );
 
-    // (10) “Confirm” button
+    // (10) “Confirm” button at bottom left
     const confirmBtn = this.add.text(
       boxX + 60,
       boxY + boxH - 30,
@@ -110,7 +123,7 @@ export class QuantityScene extends Phaser.Scene {
       { fontSize: '16px', fill: '#44ff44' }
     ).setInteractive();
     confirmBtn.on('pointerdown', () => {
-      // Call back with chosen quantity, then close out this scene:
+      // invoke the callback with the chosen quantity, then close:
       if (this.callback) {
         this.callback(this.selected);
       }
@@ -118,7 +131,7 @@ export class QuantityScene extends Phaser.Scene {
       this.scene.resume('TradeScene');
     });
 
-    // (11) “Cancel” button
+    // (11) “Cancel” button at bottom right
     const cancelBtn = this.add.text(
       boxX + boxW - 60,
       boxY + boxH - 30,
