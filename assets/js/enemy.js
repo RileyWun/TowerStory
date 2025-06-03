@@ -284,7 +284,7 @@ export class Enemy extends Phaser.GameObjects.Sprite {
       onComplete: () => {
         // 2) Spawn loot in the scene
         const scene = this.scene;
-        scene.spawnLoot(this.x, this.y, 'loot-coin', Phaser.Math.Between(1, 3)); 
+        scene.spawnLoot(this.x, this.y, 'coin', Phaser.Math.Between(1, 5)); 
         // 3) Destroy sprite + container
         this.healthContainer.destroy();
         this.destroy();
