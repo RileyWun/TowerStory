@@ -164,12 +164,37 @@
           this.player.body.setAllowGravity(false);
           this.player.body.setSize(16,16);
 
-          // 7a) Register walking animations **before** we ever use them
+          // 7a) Register walking & attack animations **before** we ever use them
           this.createPlayerAnims();
+
+          // ─────────────────────────────────────────────────────────────
+          // 7b) Create a “hitZone” Rectangle that we will enable only on the swing frame:
+          this.hitZone = this.add.rectangle(0,0,32,32, 0xff0000, 0)
+            .setOrigin(0.5)
+            .setDepth(1000);
+          this.physics.add.existing(this.hitZone);
+          this.hitZone.body.setEnable(false);
+
+          // When hitZone overlaps any enemy, call enemy.takeDamage(1) once per swing:
+          this.physics.add.overlap(
+            this.hitZone,
+            this.enemies,
+            (zone, enemy) => {
+              if (!enemy._justHit) {
+                enemy.takeDamage(1);
+                enemy._justHit = true;
+                // prevent multi‐hits in same swing
+                this.time.delayedCall(200, () => { enemy._justHit = false; });
+              }
+            }
+          );
+          // ─────────────────────────────────────────────────────────────
 
           // 8) Keyboard & camera
           this.keys = this.input.keyboard.addKeys('W,A,S,D');
           this.keys.SPACE = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+          this.attackCooldown = 300;     // 300 ms between swings
+          this.lastAttackTime = 0;
           this.keys.SPACE.on('down', () => this.playerAttack());
 
           this.cameras.main.setBounds(0,0,map.widthInPixels,map.heightInPixels);
@@ -278,6 +303,14 @@
               repeat: -1
             });
           });
+
+          // New “attack” animation (frames 96→101); adjust if your sheet differs
+          this.anims.create({
+            key: 'attack',
+            frames: this.anims.generateFrameNumbers('player', { start: 96, end: 101 }),
+            frameRate: 12,
+            repeat: 0
+          });
         }
 
         openInventory(playerInv, chestInv){
@@ -365,13 +398,35 @@
         }
 
         playerAttack(){
-          const px = this.player.x;
-          const py = this.player.y;
-          this.enemies.getChildren().forEach(enemy => {
-            if (!enemy || !enemy.active) return;
-            const dist = Phaser.Math.Distance.Between(px, py, enemy.x, enemy.y);
-            if (dist < enemy.hitRadius + 16){
-              enemy.takeDamage(1);
+          const now = this.time.now;
+          if (now - this.lastAttackTime < this.attackCooldown) {
+            return; // still on cooldown
+          }
+          this.lastAttackTime = now;
+
+          // 1) Play attack animation
+          this.player.play('attack');
+
+          // 2) On the swing frame (frame.index === 3 here), enable hitZone briefly
+          this.player.once('animationupdate-attack', (anim, frame) => {
+            if (frame.index === 3) {
+              // Position hitZone in front of the player, based on lastDir
+              let hx = this.player.x;
+              let hy = this.player.y;
+              const offset = 24;
+              switch (this.lastDir) {
+                case 'up':    hy -= offset; break;
+                case 'down':  hy += offset; break;
+                case 'left':  hx -= offset; break;
+                case 'right': hx += offset; break;
+              }
+              this.hitZone.setPosition(hx, hy);
+              this.hitZone.body.setEnable(true);
+
+              // Disable hitZone after 80 ms
+              this.time.delayedCall(80, () => {
+                this.hitZone.body.setEnable(false);
+              });
             }
           });
         }
