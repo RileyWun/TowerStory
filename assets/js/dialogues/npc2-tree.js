@@ -22,7 +22,7 @@ export default {
           next: 'questAccepted'
         },
         {
-          text: 'I have to think about it, I\'ll talk later',
+          text: 'Not right now',
           next: 'farewell'
         }
       ]
