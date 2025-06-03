@@ -168,20 +168,34 @@
           this.createPlayerAnims();
 
           // ─────────────────────────────────────────────────────────────
-          // 7b) Create a “hitZone” Rectangle that we will enable only for 80 ms on SPACE
+          // 7b) Initialize equipment & stats on the player:
+          this.player.baseDamage  = 1;
+          this.player.baseDefense = 0;
+          this.player.equipment   = {
+            weapon: null,
+            armor:  null
+          };
+          this.player.refreshPlayerStats = () => {
+            this.player.currentDamage  = this.player.baseDamage  + (this.player.equipment.weapon?.damage  || 0);
+            this.player.currentDefense = this.player.baseDefense + (this.player.equipment.armor?.defense || 0);
+          };
+          // compute initial values:
+          this.player.refreshPlayerStats();
+
+          // 8) Create a “hitZone” Rectangle that we will enable only for 80 ms on SPACE
           this.hitZone = this.add.rectangle(0,0,32,32, 0xff0000, 0)
             .setOrigin(0.5)
             .setDepth(1000);
           this.physics.add.existing(this.hitZone);
           this.hitZone.body.setEnable(false);
 
-          // When hitZone overlaps any enemy, damage it once per swing:
+          // 8a) When hitZone overlaps any enemy, damage it by player.currentDamage:
           this.physics.add.overlap(
             this.hitZone,
             this.enemies,
             (zone, enemy) => {
               if (!enemy._justHit) {
-                enemy.takeDamage(1);
+                enemy.takeDamage(this.player.currentDamage);
                 enemy._justHit = true;
                 this.time.delayedCall(200, () => { enemy._justHit = false; });
               }
@@ -189,17 +203,17 @@
           );
           // ─────────────────────────────────────────────────────────────
 
-          // 8) Keyboard & camera
+          // 9) Keyboard & camera
           this.keys = this.input.keyboard.addKeys('W,A,S,D');
           this.keys.SPACE = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
           this.attackCooldown = 300;     // 300 ms between swings
-          this.lastAttackTime = 0;
+          this.lastAttackTime  = 0;
           this.keys.SPACE.on('down', () => this.playerAttack());
 
           this.cameras.main.setBounds(0,0,map.widthInPixels,map.heightInPixels);
           this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
 
-          // 9) Overlap for loot pickup
+          // 10) Overlap for loot pickup
           this.physics.add.overlap(
             this.player,
             this.lootGroup,
@@ -233,7 +247,7 @@
             }
           );
 
-          // 10) Managers
+          // 11) Managers
           this.npcManager   = new NPCManager(this);
           this.npcManager.createFromObjects(objs);
 
@@ -241,7 +255,7 @@
           this.dialogueTree = new DialogueTreeManager(this);
           this.tradeManager = new TradeManager(this);
 
-          // 10a) Load quest dialog trees
+          // 11a) Load quest dialog trees
           this.questManager.quests.forEach(quest => {
             if (!quest.dialogueFile) return;
             import(`./assets/js/dialogues/${quest.dialogueFile}`)
@@ -252,7 +266,7 @@
               .catch(err => console.warn(`Failed to load quest tree for ${quest.id}`, err));
           });
 
-          // 10b) Load NPC main dialog trees
+          // 11b) Load NPC main dialog trees
           this.npcManager.npcs.forEach(npc => {
             import(`./assets/js/dialogues/${npc.npcId}-tree.js`)
               .then(mod => {
@@ -262,17 +276,17 @@
               .catch(err => console.warn(`No dialogue module for ${npc.npcId}`, err));
           });
 
-          // 11) Conversations (press “F”)
+          // 12) Conversations (press “F”)
           this.npcManager.enableConversations('F', npc =>
             this.dialogueTree.startDialogue(npc.npcId)
           );
 
-          // 12) Inventory & chest hotkeys
+          // 13) Inventory & chest hotkeys
           this.events.on('inventoryClosed', data => {
             this.playerInv = data.playerInv;
             this.scene.resume();
           });
-          this.input.keyboard.on('keydown-I', () => this.openInventory(this.playerInv,null));
+          this.input.keyboard.on('keydown-I', () => this.openInventory(this.playerInv, null));
           this.input.keyboard.on('keydown-E', () => {
             const { x, y } = this.player;
             this.chests.forEach(ch => {
@@ -395,7 +409,7 @@
           }
           this.lastAttackTime = now;
 
-          // Immediately enable the hitZone directly in front of the player:
+          // Immediately enable the hitZone in front of the player:
           let hx = this.player.x;
           let hy = this.player.y;
           const offset = 24;
