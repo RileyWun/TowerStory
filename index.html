@@ -125,7 +125,7 @@
 
           // 5) Create empty groups for enemies and loot
           this.enemies   = this.add.group();
-          this.lootGroup = this.add.group();
+          this.lootGroup = this.physics.add.group();
 
           // 6) Loop through every object in Tiled
           objs.forEach(o => {
@@ -179,16 +179,16 @@
                 this.enemies.add(mob);
               }
             }
-          }); // ← End of objs.forEach loop
+          });
 
           // 7) Now that all Tiled objects are handled, create the player:
-          this.player = this.add.sprite(0, 0, 'player').setOrigin(0.5, 1);
-          this.createPlayerAnims();
-          this.playerIsoX = spawnPoint.x / this.tileW;
-          this.playerIsoY = spawnPoint.y / this.tileH;
-          const px = (this.playerIsoX - this.playerIsoY)*(this.tileW/2) + this.offsetX;
-          const py = (this.playerIsoX + this.playerIsoY)*(this.tileH/2) + this.offsetY;
-          this.player.setPosition(px, py).setDepth(py);
+                this.player = this.physics.add.sprite(0, 0, 'player')
+                    .setOrigin(0.5, 1);
+                this.playerIsoX = spawnPoint.x / this.tileW;
+                this.playerIsoY = spawnPoint.y / this.tileH;
+                const px = (this.playerIsoX - this.playerIsoY)*(this.tileW/2) + this.offsetX;
+                const py = (this.playerIsoX + this.playerIsoY)*(this.tileH/2) + this.offsetY;
+                this.player.setPosition(px, py).setDepth(py);
 
           // 8) Set up keyboard movement and camera
           this.keys = this.input.keyboard.addKeys('W,A,S,D');
@@ -412,10 +412,29 @@
               yoyo: true
             });
 
-            this.lootGroup.add(loot);
+            this.lootGroup = this.physics.add.group();
+            const loot = this.lootGroup.create(x + dx, y + dy, key)
+  .setOrigin(0.5, 0.5)
+  .setDepth(y + dy);
+
+// by default, physics.add.group().create() gives it a body
+loot.body.setAllowGravity(false);
+loot.setInteractive();
+loot.itemKey   = key;
+loot.quantity  = 1;
+loot.collected = false;
+
+// small bounce between
+this.tweens.add({
+  targets: loot,
+  y: (y + dy) - 8,
+  ease: 'Power1',
+  duration: 200,
+  yoyo: true
+});
           }
         }
-      } // ← End of MainScene
+      } // End of MainScene
 
       // ────────────────────────────────────────────────────────────────
       // DialogueScene (shows a block of text, closes on ESC or click)
