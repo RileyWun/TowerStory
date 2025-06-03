@@ -11,7 +11,7 @@ export default {
     },
     offerQuest: {
       type: 'choice',
-      question: 'Will you accept my shekels?',
+      question: 'Will you help me?',
       options: [
         {
           text: 'Yes, of course!',
