@@ -1,16 +1,15 @@
 // ────────────────────────────────────────────────────────────────────────────────
-// ────────────────────────────────────────────────────────────────────────────────
 
 export class Enemy extends Phaser.GameObjects.Sprite {
   /**
    * @param {Phaser.Scene} scene 
-   * @param {number} isoX   — isometric X (tile‐coord)
-   * @param {number} isoY   — isometric Y (tile‐coord)
-   * @param {string} mobType — key of the loaded image (e.g. "slime")
-   * @param {number} [level=1] — integer level of this mob
+   * @param {number} isoX    – isometric X (tile‐coord) 
+   * @param {number} isoY    – isometric Y (tile‐coord) 
+   * @param {string} mobType – key of loaded texture (e.g. "slime") 
+   * @param {number} [level=1]
    */
   constructor(scene, isoX, isoY, mobType, level = 1) {
-    // Convert isoX/isoY → screen X/Y
+    // Convert (isoX, isoY) → on‐screen (x, y)
     const tileW = scene.tileW, tileH = scene.tileH;
     const screenX = (isoX - isoY)*(tileW/2) + scene.offsetX;
     const screenY = (isoX + isoY)*(tileH/2) + scene.offsetY;
@@ -19,7 +18,6 @@ export class Enemy extends Phaser.GameObjects.Sprite {
     this.setOrigin(0.5, 1);
     scene.add.existing(this);
     scene.physics.add.existing(this);
-
     this.setDepth(screenY);
 
     this.isoX    = isoX;
@@ -27,58 +25,60 @@ export class Enemy extends Phaser.GameObjects.Sprite {
     this.mobType = mobType;
     this.level   = level;
 
-    // ─── Stats based on level ───────────────────────────────────
+    // ─── Stats by level ─────────────────────────────────────────
     const baseHP     = 10;
     const baseDamage = 1;
-    this.maxHP       = baseHP * this.level;
-    this.currentHP   = this.maxHP;
-    this.damage      = baseDamage * this.level;
-    this.speed       = 1.0 + (this.level - 1) * 0.2; // e.g. 1.0, 1.2, 1.4, …
-    this.state       = 'idle';  // "idle" | "alert" | "attack" | "retreat" | "hurt"
-    this.hitRadius   = 24;      // melee‐hit radius in screen px
-    this.attackRange = 40;      // when within 40px, perform a “lunge” then retreat
-    this.retreatTime = 0;       // countdown (ms) for “retreat” state
-    this.alertRange  = 100;     // how close before becoming “alerted”
+    this.maxHP      = baseHP * this.level;
+    this.currentHP  = this.maxHP;
+    this.damage     = baseDamage * this.level;
+    this.speed      = 1.0 + (this.level - 1)*0.2; // e.g. 1.0, 1.2, 1.4, …
+    this.state      = 'idle';    // idle | alert | attack | retreat | hurt
+    this.hitRadius  = 24;        // screen px for player melee
+    this.attackRange = 40;       // lunge when within 40px
+    this.retreatTime = 0;        // ms countdown for smooth retreat
+    this.alertRange  = 100;      // px to switch to “alert”
+    this.retreatDir  = { x: 0, y: 0 };
 
-    // ─── Health‐bar + name text (initially hidden) ─────────────
+    // ─── Health‐bar + name (hidden by default) ─────────────────
+    // We’ll center both at (0,0) inside a container with origin (0.5, 1).
     this.barBg = scene.add
       .rectangle(0, 0, 32, 4, 0x000000, 1)
       .setDepth(this.depth + 1)
+      .setOrigin(0.5, 0)
       .setVisible(false);
 
     this.barFg = scene.add
       .rectangle(0, 0, 32, 4, 0x44ff44, 1)
       .setDepth(this.depth + 2)
+      .setOrigin(0.5, 0)
       .setVisible(false);
 
-    // Name + level (e.g. “Slime – Lvl 3”)
     this.nameText = scene.add
-      .text(0, 0, `${this._capitalize(this.mobType)} – Lvl ${this.level}`, {
+      .text(0, -8, `${this._capitalize(this.mobType)} – Lvl ${this.level}`, {
         fontSize: '12px',
-        fill: '#ffffff',
-        stroke: '#000000',
+        fill: '#fff',
+        stroke: '#000',
         strokeThickness: 2
       })
       .setDepth(this.depth + 3)
       .setOrigin(0.5, 1)
       .setVisible(false);
 
-    // Container for barBg and barFg
     this.healthContainer = scene.add
       .container(screenX, screenY - this.height - 8, [ this.barBg, this.barFg, this.nameText ])
       .setDepth(this.depth + 1)
       .setVisible(false);
 
-    // Draw the initial full bar (width = 32)
-    this.barBg.x = -16;
-    this.barFg.x = -16;
-    this.nameText.y = -8; // place the name slightly above bar
+    // Draw full‐health bar at start:
+    this.barBg.y = 0;
+    this.barFg.y = 0;
+    this.barBg.x = 0;
+    this.barFg.x = 0;
 
-    // ─── Start wandering in a random direction ─────────────────
+    // Wander in a random direction initially
     this._setRandomDirection();
   }
 
-  // Capitalize e.g. "slime" → "Slime"
   _capitalize(str) {
     return str.charAt(0).toUpperCase() + str.slice(1);
   }
@@ -105,21 +105,25 @@ export class Enemy extends Phaser.GameObjects.Sprite {
     const dt = delta / 1000;
     const player = this.scene.player;
 
-    // ─── If “retreat” countdown is running, decrement it ────────
+    // 1) If “retreat” countdown is active, move gradually
     if (this.state === 'retreat') {
+      // Move along stored retreatDir in iso‐space
+      this.isoX += this.retreatDir.x * this.speed * dt;
+      this.isoY += this.retreatDir.y * this.speed * dt;
       this.retreatTime -= delta;
       if (this.retreatTime <= 0) {
-        this.state = 'alert'; // return to chasing after retreat ends
+        // Once done retreating, go back to alert (if player still close)
+        this.state = 'alert';
       }
     }
 
-    // ─── Always check distance to player to switch states ───────
+    // 2) Compute screen distance to player:
     const distToPlayer = Phaser.Math.Distance.Between(
       this.x, this.y,
       player.x, player.y
     );
 
-    // If within attackRange AND not currently retreating or hurt, switch to “attack”
+    // 3) Decide new state based on distance & current state
     if (
       distToPlayer < this.attackRange &&
       this.state !== 'retreat' &&
@@ -128,7 +132,6 @@ export class Enemy extends Phaser.GameObjects.Sprite {
       this.state = 'attack';
       this._showHealthBar(true);
     }
-    // If not in “attack” AND within alertRange, switch to “alert”
     else if (
       distToPlayer < this.alertRange &&
       this.state !== 'attack' &&
@@ -138,7 +141,6 @@ export class Enemy extends Phaser.GameObjects.Sprite {
       this.state = 'alert';
       this._showHealthBar(true);
     }
-    // Else, if player is far and we’re not hurt, revert to idle
     else if (
       distToPlayer >= this.alertRange &&
       this.state !== 'hurt'
@@ -147,78 +149,68 @@ export class Enemy extends Phaser.GameObjects.Sprite {
       this._showHealthBar(false);
     }
 
-    // ─── Movement logic per state ───────────────────────────────
+    // 4) Movement logic by state
     if (this.state === 'idle') {
-      // Wander randomly
+      // wander randomly
       this.isoX += this.dirX * this.speed * dt;
       this.isoY += this.dirY * this.speed * dt;
 
-      // Bounce off map edges and pick a new random direction
+      // bounce off map edges & pick new direction
       const mw = this.scene.mapW, mh = this.scene.mapH;
-      if (this.isoX < 0)           { this.isoX = 0; this._setRandomDirection(); }
+      if (this.isoX < 0)           { this.isoX = 0;    this._setRandomDirection(); }
       else if (this.isoX > mw - 1) { this.isoX = mw - 1; this._setRandomDirection(); }
-      if (this.isoY < 0)           { this.isoY = 0; this._setRandomDirection(); }
+      if (this.isoY < 0)           { this.isoY = 0;    this._setRandomDirection(); }
       else if (this.isoY > mh - 1) { this.isoY = mh - 1; this._setRandomDirection(); }
     }
     else if (this.state === 'alert') {
-      // Chase the player
+      // chase the player
       const dx = player.x - this.x;
       const dy = player.y - this.y;
       const length = Math.hypot(dx, dy);
       if (length > 0) {
-        this.isoX += (dx/length) * this.speed * dt;
-        this.isoY += (dy/length) * this.speed * dt;
+        this.isoX += (dx/length)*this.speed*dt;
+        this.isoY += (dy/length)*this.speed*dt;
       }
     }
     else if (this.state === 'attack') {
-      // Lunge toward the player one step, then immediately begin “retreat”
-      // We simply back off a bit from the player's current position:
-      const dx = this.x - player.x;
-      const dy = this.y - player.y;
-      const length = Math.hypot(dx, dy);
-      if (length > 0) {
-        // Move away in screen space by a small amount:
-        const backOff = 32; // 32 px back
-        const nx = this.x + (dx/length)*backOff;
-        const ny = this.y + (dy/length)*backOff;
+      // 4a) Compute iso‐space vector away from the player,
+      //     so we can retreat smoothly. To find iso‐vector:
+      const pxIso = (player.x - this.scene.offsetX)/(this.scene.tileW/2) + (player.y - this.scene.offsetY)/(this.scene.tileH/2);
+      const pyIso = ((player.y - this.scene.offsetY)/(this.scene.tileH/2) - (player.x - this.scene.offsetX)/(this.scene.tileW/2)) / 2;
+      // Actually, it’s easier to just do iso‐vector by these formulas:
+      const isoDX = this.isoX - player.x / this.scene.tileW;
+      const isoDY = this.isoY - player.y / this.scene.tileH;
+      // BUT since we know this.x/this.y are screen coords, a simpler way is:
+      //   Use screen dx/dy, then convert to iso: (-dy + dx)/tileW , (dx + dy)/tileH
+      const screenDX = this.x - player.x;
+      const screenDY = this.y - player.y;
+      const length = Math.hypot(screenDX, screenDY) || 1;
+      // retreatDir in **iso space**:
+      this.retreatDir.x = (screenDX/length + screenDY/length) / 2;
+      this.retreatDir.y = (screenDY/length - screenDX/length) / 2;
 
-        // Convert screen (nx,ny) back to isoX/isoY:
-        const tileW = this.scene.tileW, tileH = this.scene.tileH;
-        const isoX = ((nx - this.scene.offsetX)/(tileW/2) + (ny - this.scene.offsetY)/(tileH/2)) / 2;
-        const isoY = (((ny - this.scene.offsetY)/(tileH/2)) - ((nx - this.scene.offsetX)/(tileW/2))) / 2;
-
-        this.isoX = isoX;
-        this.isoY = isoY;
-      }
-
-      // Deal damage to player immediately (you can add an on‐hit debounce if desired):
-      // e.g. player.takeDamage ? player.takeDamage(this.damage) : console.log(...)
-      // For now, just log it:
+      // deal damage to player (you can replace with actual player.takeDamage(this.damage))
       console.log(`Slime Lvl ${this.level} hits player for ${this.damage} damage!`);
 
-      // After attacking, enter “retreat” for a random 0.5–1.0s
-      this.state = 'retreat';
+      // set up a 500–1000ms retreat
       this.retreatTime = Phaser.Math.Between(500, 1000);
+      this.state = 'retreat';
     }
-    else if (this.state === 'retreat') {
-      // Already handled at top: we simply wait until retreatTime ≤ 0,
-      // then state will flip back to 'alert' automatically.
-    }
-    else if (this.state === 'hurt') {
-      // Freeze in place until the “hurt” timer finishes (in takeDamage)
-    }
+    // if state == 'retreat', movement was handled at top
+    // if state == 'hurt', we simply do nothing until hurt timer ends
 
-    // ─── Convert updated isoX/isoY → screen X/Y ────────────────
+    // 5) Re‐compute screen position from isoX/isoY:
     const tileW = this.scene.tileW, tileH = this.scene.tileH;
     const screenX = (this.isoX - this.isoY)*(tileW/2) + this.scene.offsetX;
     const screenY = (this.isoX + this.isoY)*(tileH/2) + this.scene.offsetY;
-
     this.setPosition(screenX, screenY).setDepth(screenY);
+
+    // 6) Move the health‐bar + name with the sprite
     this.healthContainer.setPosition(screenX, screenY - this.height - 8);
     this.healthContainer.setDepth(screenY + 1);
-    this.nameText.setPosition(0, -8); // relative to container
+    this.nameText.setPosition(0, -8);
 
-    // ─── Occasionally pick a new wander direction if idle ───────
+    // 7) Occasionally pick a new wander direction
     if (this.state === 'idle' && Phaser.Math.Between(0, 1000) < 5) {
       this._setRandomDirection();
     }
@@ -231,23 +223,27 @@ export class Enemy extends Phaser.GameObjects.Sprite {
     this.currentHP -= amount;
     if (this.currentHP < 0) this.currentHP = 0;
 
-    // Immediately go into “hurt” state and show health bar + name
+    // Immediately show “hurt” state and keep health bar visible
     this.state = 'hurt';
     this._showHealthBar(true);
-
     this._updateHealthBar();
 
-    // Briefly tint red, then resume either alert or idle logic
+    // flash red, then after 500ms revert to either idle or alert
     this.setTint(0xff4444);
     this.scene.time.delayedCall(100, () => {
       this.clearTint();
-      // After another 500ms, if still not “alert” (player is far), hide the bar
       this.scene.time.delayedCall(500, () => {
-        if (this.state !== 'alert' && this.currentHP > 0) {
-          this._showHealthBar(false);
+        // if still < alertRange, stay alert; else hide the bar
+        const distToPlayer = Phaser.Math.Distance.Between(
+          this.x, this.y, this.scene.player.x, this.scene.player.y
+        );
+        if (distToPlayer < this.alertRange && this.currentHP > 0) {
+          this.state = 'alert';
+          this._showHealthBar(true);
+        } else if (this.currentHP > 0) {
           this.state = 'idle';
+          this._showHealthBar(false);
         }
-        // if currentHP==0, we’ll die next:
         if (this.currentHP === 0) {
           this.die();
         }
@@ -258,8 +254,7 @@ export class Enemy extends Phaser.GameObjects.Sprite {
   _updateHealthBar() {
     const pct = Phaser.Math.Clamp(this.currentHP / this.maxHP, 0, 1);
     this.barFg.width = 32 * pct;
-    this.barFg.x = -16 + this.barFg.width/2;
-    this.barBg.x = -16;
+    // barFg origin is (0.5,0), so no need to shift x manually
   }
 
   _showHealthBar(visible) {
