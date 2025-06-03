@@ -3,288 +3,274 @@
 /**
  * InventoryScene
  *
- * Displays:
- *   • The player’s inventory panel (4×5 grid of slots).
- *   • Optionally, a chest’s inventory panel (also 4×5).
- * 
- * Drag‐and‐drop is fully supported between the two panels.
- * Pressing ESC or “I” closes the UI and sends the updated
- * playerInv back to MainScene via the “inventoryClosed” event.
+ * Displays a 4×5 inventory grid (4 columns, 5 rows) on top of a centered
+ * semi‐opaque background panel.  Shows the text “Inventory” at the top, then
+ * the grid of empty slot outlines with any item icons drawn inside.  Supports
+ * drag‐and‐drop to rearrange stacks or move back to equipment.
+ *
+ * Press ESC or “I” to close.  Emits “inventoryClosed” with updated playerInv
+ * when closed.
  */
+
 export class InventoryScene extends Phaser.Scene {
   constructor() {
     super('InventoryScene');
   }
 
   init(data) {
-    // data.playerInv must be an array of { iconKey: string, count: number }
-    // data.chestInv may be null or an array of the same shape
-    // If chestInv is null, we only draw the player panel.
+    // We expect MainScene to pass:
+    //   • playerInv: an array of { iconKey, count }
     this.playerInv = data.playerInv || [];
-    this.chestInv  = Array.isArray(data.chestInv) ? data.chestInv : null;
-    this.showChest = Array.isArray(data.chestInv);
-
-    // We’ll track the current drag operation here:
-    // { from: 'player'|'chest', invIndex: number, item: {iconKey, count} }
-    this.draggedItem = null;
   }
 
   create() {
     const W = this.scale.width;
     const H = this.scale.height;
 
-    // Panel dimensions
-    this.panelW = 200;
-    this.panelH = 300;
-
-    // Left panel: the player's inventory
-    this.leftPanel = new Phaser.Geom.Rectangle(
-      20,                // x
-      20,                // y
-      this.panelW,       // width
-      this.panelH        // height
-    );
-
-    // If showChest, create a right panel for chest
-    if (this.showChest) {
-      this.rightPanel = new Phaser.Geom.Rectangle(
-        W - 20 - this.panelW,  // x
-        20,                     // y
-        this.panelW,            // width
-        this.panelH             // height
-      );
-    }
-
-    // A group that will hold all UI‐related GameObjects
+    // 1) Full‐screen dark overlay
+    const overlay = this.add.graphics();
+    overlay.fillStyle(0x000000, 0.75);
+    overlay.fillRect(0, 0, W, H);
     this.uiGroup = this.add.group();
+    this.uiGroup.add(overlay);
 
-    // Create draggable title‐bars
-    this.leftZone = this.add.zone(
-      this.leftPanel.x,
-      this.leftPanel.y,
-      this.leftPanel.width,
-      20
-    ).setOrigin(0).setInteractive({ draggable: true });
+    // 2) Compute panel size & position
+    // Inventory grid: 4 columns × 5 rows
+    const cols       = 4;
+    const rows       = 5;
+    const slotSize   = 64;    // each slot is 64×64 px
+    const padding    = 12;    // space between slots and around edges
+    const titleArea  = 40;    // extra space at top for “Inventory” label
 
-    if (this.showChest) {
-      this.rightZone = this.add.zone(
-        this.rightPanel.x,
-        this.rightPanel.y,
-        this.rightPanel.width,
-        20
-      ).setOrigin(0).setInteractive({ draggable: true });
+    // Panel width = cols*slotSize + (cols+1)*padding
+    // Panel height = titleArea + rows*slotSize + (rows+1)*padding
+    const panelWidth  = cols * slotSize + (cols + 1) * padding;
+    const panelHeight = titleArea + rows * slotSize + (rows + 1) * padding;
+
+    const panelX = (W - panelWidth) / 2;
+    const panelY = (H - panelHeight) / 2;
+
+    // 3) Draw panel background (rounded rect)
+    const panelBg = this.add.graphics();
+    panelBg.fillStyle(0x222222, 0.9);
+    panelBg.fillRoundedRect(panelX, panelY, panelWidth, panelHeight, 8);
+    this.uiGroup.add(panelBg);
+
+    // 4) Draw “Inventory” title at top‐center of panel
+    const titleText = this.add
+      .text(
+        panelX + panelWidth / 2,
+        panelY + 8,
+        'Inventory',
+        { fontSize: '20px', fill: '#ffffff' }
+      )
+      .setOrigin(0.5, 0);
+    this.uiGroup.add(titleText);
+
+    // 5) Precompute slot center positions
+    this.slotCenters = [];
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) {
+        const x = panelX + padding + col * (slotSize + padding) + slotSize / 2;
+        const y = panelY + titleArea + padding + row * (slotSize + padding) + slotSize / 2;
+        this.slotCenters.push({ x, y });
+      }
     }
 
-    // Allow dragging of title bars
-    const draggableZones = [this.leftZone];
-    if (this.showChest) {
-      draggableZones.push(this.rightZone);
+    // 6) Draw empty slot outlines
+    for (let i = 0; i < this.slotCenters.length; i++) {
+      const { x, y } = this.slotCenters[i];
+      const rect = new Phaser.Geom.Rectangle(
+        x - slotSize / 2,
+        y - slotSize / 2,
+        slotSize,
+        slotSize
+      );
+      const border = this.add.graphics();
+      border.lineStyle(2, 0xffffff);
+      border.strokeRectShape(rect);
+      this.uiGroup.add(border);
     }
-    this.input.setDraggable(draggableZones);
 
-    this.input.on('drag', (pointer, gameObject, dragX, dragY) => {
-      // If dragging left panel’s bar:
-      if (gameObject === this.leftZone) {
-        this.leftPanel.x = dragX;
-        this.leftZone.x  = dragX;
-        this.leftPanel.y = dragY;
-        this.leftZone.y  = dragY;
-        this.redraw();
+    // 7) Draw each inventory item icon inside its slot
+    //    If count > 1, draw the count in bottom‐right of slot.
+    for (let i = 0; i < this.playerInv.length; i++) {
+      const item = this.playerInv[i];
+      if (!item) continue;
+
+      // If playerInv is shorter than number of slots, skip empty indices
+      if (i >= this.slotCenters.length) break;
+
+      const { x, y } = this.slotCenters[i];
+      const icon = this.add
+        .image(x, y, item.iconKey)
+        .setScale(0.5)
+        .setDepth(10)
+        .setInteractive({ draggable: true });
+      icon.setData('fromInv', i);
+
+      this.uiGroup.add(icon);
+
+      if (item.count > 1) {
+        const countText = this.add
+          .text(
+            x + slotSize / 2 - 14,
+            y + slotSize / 2 - 14,
+            item.count.toString(),
+            { fontSize: '14px', fill: '#ffff00' }
+          )
+          .setDepth(11);
+        this.uiGroup.add(countText);
       }
-      // If dragging right panel’s bar:
-      else if (this.showChest && gameObject === this.rightZone) {
-        this.rightPanel.x = dragX;
-        this.rightZone.x  = dragX;
-        this.rightPanel.y = dragY;
-        this.rightZone.y  = dragY;
-        this.redraw();
-      }
+    }
+
+    // 8) Capture drag events to allow rearranging or splitting stacks
+    this.input.on('dragstart', (pointer, gameObject) => {
+      this.draggedItem = {
+        gameObject,
+        fromInv: gameObject.getData('fromInv'),
+      };
     });
 
-    // When drag ends, drop the item
-    this.input.on('dragend', this.onDragEnd, this);
+    this.input.on('drag', (pointer, gameObject, dragX, dragY) => {
+      gameObject.x = dragX;
+      gameObject.y = dragY;
+    });
 
-    // Close on ESC or I
-    this.input.keyboard.once('keydown-ESC', () => { this.close(); });
-    this.input.keyboard.once('keydown-I',   () => { this.close(); });
+    this.input.on('dragend', (pointer, gameObject) => {
+      // Determine if dropped on a valid slot
+      const dx = gameObject.x;
+      const dy = gameObject.y;
+      let targetIndex = null;
 
-    // Finally, draw everything
-    this.redraw();
-  }
-
-  /**
-   * Clear and redraw both panels (player + chest if any).
-   */
-  redraw() {
-    // Clear all previous UI elements
-    this.uiGroup.clear(true, true);
-
-    // Draw a semi‐transparent backdrop behind the panels
-    const bg = this.add.graphics();
-    bg.fillStyle(0x000000, 0.7);
-    const leftX = this.leftPanel.x - 10;
-    const leftY = this.leftPanel.y - 10;
-    const totalWidth = this.showChest
-      ? (this.rightPanel.x + this.rightPanel.width) - this.leftPanel.x
-      : this.leftPanel.width;
-    const totalHeight = this.leftPanel.height;
-    bg.fillRect(leftX, leftY, totalWidth + 20, totalHeight + 20);
-    this.uiGroup.add(bg);
-
-    // Draw left panel border + title
-    const leftBorder = this.add.graphics();
-    leftBorder.lineStyle(2, 0xffffff);
-    leftBorder.strokeRectShape(this.leftPanel);
-    this.uiGroup.add(leftBorder);
-
-    const invLabel = this.add.text(
-      this.leftPanel.x + 10,
-      this.leftPanel.y,
-      'Inventory',
-      { fontSize: '16px', fill: '#fff' }
-    );
-    this.uiGroup.add(invLabel);
-
-    // Draw right panel (chest) if present
-    if (this.showChest) {
-      const rightBorder = this.add.graphics();
-      rightBorder.lineStyle(2, 0xffffff);
-      rightBorder.strokeRectShape(this.rightPanel);
-      this.uiGroup.add(rightBorder);
-
-      const chestLabel = this.add.text(
-        this.rightPanel.x + 10,
-        this.rightPanel.y,
-        'Chest',
-        { fontSize: '16px', fill: '#fff' }
-      );
-      this.uiGroup.add(chestLabel);
-    }
-
-    // Now draw slots (4×5) in each panel
-    this.drawSlots(false);  // false => draw player slots
-    if (this.showChest) {
-      this.drawSlots(true); // true => draw chest slots
-    }
-  }
-
-  /**
-   * Draw a 4×5 grid of slots (48×48 px each + padding) inside either leftPanel or rightPanel.
-   * If isChest = true, draw inside rightPanel using this.chestInv; otherwise leftPanel with this.playerInv.
-   */
-  drawSlots(isChest = false) {
-    const panel = isChest ? this.rightPanel : this.leftPanel;
-    const inv   = isChest ? this.chestInv   : this.playerInv;
-
-    // Grid dimensions
-    const cols = 4, rows = 5;
-    const slotSize = 48;
-    const padding = 10;
-
-    // Starting top‐left inside the panel (24 px below top for the title bar)
-    const startX = panel.x + padding;
-    const startY = panel.y + padding + 20;
-
-    for (let row = 0; row < rows; ++row) {
-      for (let col = 0; col < cols; ++col) {
-        const idx = row * cols + col;
-        const x = startX + col * (slotSize + padding);
-        const y = startY + row * (slotSize + padding);
-
-        // Draw empty slot rectangle
-        const slotRect = new Phaser.Geom.Rectangle(x, y, slotSize, slotSize);
-        const slotBg = this.add.graphics();
-        slotBg.lineStyle(1, 0xffffff, 0.5);
-        slotBg.strokeRectShape(slotRect);
-        this.uiGroup.add(slotBg);
-
-        // If there’s an item at this index, draw icon + count
-        if (idx < inv.length) {
-          const item = inv[idx];
-
-          // Add the icon, make it draggable
-          const icon = this.add.image(
-            x + slotSize/2,
-            y + slotSize/2,
-            item.iconKey
-          ).setScale(0.5)
-            .setDepth(10)
-            .setInteractive({ draggable: true });
-          this.uiGroup.add(icon);
-
-          // Show stacked count if > 1
-          if (item.count > 1) {
-            const countText = this.add.text(
-              x + slotSize - 12,
-              y + slotSize - 14,
-              item.count.toString(),
-              { fontSize: '12px', fill: '#ffff00' }
-            ).setDepth(11);
-            this.uiGroup.add(countText);
-          }
-
-          // Store custom data so onDragEnd knows where it came from
-          icon.setData('owner', isChest ? 'chest' : 'player');
-          icon.setData('invIndex', idx);
+      for (let i = 0; i < this.slotCenters.length; i++) {
+        const { x, y } = this.slotCenters[i];
+        const rect = new Phaser.Geom.Rectangle(
+          x - slotSize / 2,
+          y - slotSize / 2,
+          slotSize,
+          slotSize
+        );
+        if (rect.contains(dx, dy)) {
+          targetIndex = i;
+          break;
         }
       }
-    }
+
+      const { fromInv } = this.draggedItem;
+      if (targetIndex !== null && fromInv !== null) {
+        // Swap stacks (or move if target slot is empty)
+        const a = this.playerInv[fromInv];
+        const b = this.playerInv[targetIndex];
+        this.playerInv[targetIndex] = a;
+        this.playerInv[fromInv]       = b || null;
+      }
+
+      // Redraw everything to reflect the new arrangement
+      this.redrawAll();
+
+      this.draggedItem = null;
+    });
+
+    // 9) Close on ESC or “I”
+    this.input.keyboard.once('keydown-ESC', () => this.close());
+    this.input.keyboard.once('keydown-I',   () => this.close());
   }
 
   /**
-   * onDragEnd is called when a draggable icon is dropped.  We detect
-   * which panel the pointer is over, move one unit from source→dest,
-   * then redraw both panels.
+   * Redraw all icons and slot outlines, preserving the background & title.
    */
-  onDragEnd(pointer, icon, droppedZone) {
-    const owner    = icon.getData('owner');     // 'player' or 'chest'
-    const invIndex = icon.getData('invIndex');   // index in that array
-
-    // Determine which panel the pointer ended up in:
-    let targetOwner = null;
-    if (this.leftPanel.contains(pointer.x, pointer.y)) {
-      targetOwner = 'player';
-    } else if (this.showChest && this.rightPanel.contains(pointer.x, pointer.y)) {
-      targetOwner = 'chest';
+  redrawAll() {
+    // Keep overlay (index 0) and panelBg (index 1) and titleText (index 2),
+    // destroy everything else in uiGroup.
+    const children = this.uiGroup.getChildren();
+    for (let i = children.length - 1; i >= 3; i--) {
+      children[i].destroy();
     }
 
-    // If pointer didn't land in either panel or stayed in the same panel, just redraw:
-    if (!targetOwner || targetOwner === owner) {
-      this.redraw();
-      return;
+    const slotSize = 64;
+    // 1) Re‐draw slot outlines
+    for (let i = 0; i < this.slotCenters.length; i++) {
+      const { x, y } = this.slotCenters[i];
+      const rect = new Phaser.Geom.Rectangle(
+        x - slotSize / 2,
+        y - slotSize / 2,
+        slotSize,
+        slotSize
+      );
+      const border = this.add.graphics();
+      border.lineStyle(2, 0xffffff);
+      border.strokeRectShape(rect);
+      this.uiGroup.add(border);
     }
 
-    // Source/destination arrays
-    const sourceInv = (owner === 'player') ? this.playerInv : this.chestInv;
-    const destInv   = (targetOwner === 'player') ? this.playerInv : this.chestInv;
+    // 2) Re‐draw all inventory icons & counts
+    for (let i = 0; i < this.playerInv.length; i++) {
+      const item = this.playerInv[i];
+      if (!item) continue;
+      if (i >= this.slotCenters.length) break;
 
-    // Remove one count from sourceInv[invIndex]
-    const moving = sourceInv[invIndex];
-    if (!moving) {
-      this.redraw();
-      return;
-    }
-    moving.count -= 1;
-    if (moving.count <= 0) {
-      sourceInv.splice(invIndex, 1);
+      const { x, y } = this.slotCenters[i];
+      const icon = this.add
+        .image(x, y, item.iconKey)
+        .setScale(0.5)
+        .setDepth(10)
+        .setInteractive({ draggable: true });
+      icon.setData('fromInv', i);
+      this.uiGroup.add(icon);
+
+      if (item.count > 1) {
+        const countText = this.add.text(
+          x + slotSize / 2 - 14,
+          y + slotSize / 2 - 14,
+          item.count.toString(),
+          { fontSize: '14px', fill: '#ffff00' }
+        );
+        this.uiGroup.add(countText);
+      }
     }
 
-    // Add to destination (stack if same iconKey, else push new)
-    const existing = destInv.find(i => i.iconKey === moving.iconKey);
-    if (existing) {
-      existing.count += 1;
-    } else {
-      destInv.push({ iconKey: moving.iconKey, count: 1 });
-    }
-
-    // Finally, redraw both panels
-    this.redraw();
+    // 3) Rebind drag events (necessary if icons were recreated)
+    this.input.on('dragstart', (pointer, gameObject) => {
+      this.draggedItem = {
+        gameObject,
+        fromInv: gameObject.getData('fromInv'),
+      };
+    });
+    this.input.on('drag', (pointer, gameObject, dragX, dragY) => {
+      gameObject.x = dragX;
+      gameObject.y = dragY;
+    });
+    this.input.on('dragend', (pointer, gameObject) => {
+      // Same drop logic as before
+      const dx = gameObject.x;
+      const dy = gameObject.y;
+      let targetIndex = null;
+      for (let i = 0; i < this.slotCenters.length; i++) {
+        const { x, y } = this.slotCenters[i];
+        const rect = new Phaser.Geom.Rectangle(
+          x - slotSize / 2,
+          y - slotSize / 2,
+          slotSize,
+          slotSize
+        );
+        if (rect.contains(dx, dy)) {
+          targetIndex = i;
+          break;
+        }
+      }
+      const { fromInv } = this.draggedItem;
+      if (targetIndex !== null && fromInv !== null) {
+        const a = this.playerInv[fromInv];
+        const b = this.playerInv[targetIndex];
+        this.playerInv[targetIndex] = a;
+        this.playerInv[fromInv]       = b || null;
+      }
+      this.redrawAll();
+      this.draggedItem = null;
+    });
   }
 
-  /**
-   * Close the inventory.  Emit “inventoryClosed” to MainScene, passing updated playerInv,
-   * then stop this scene.
-   */
   close() {
     this.scene.get('Main').events.emit('inventoryClosed', {
       playerInv: this.playerInv
