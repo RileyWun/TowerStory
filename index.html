@@ -187,6 +187,42 @@
           this.cameras.main.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
           this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
 
+           // ─── When player overlaps/“touches” any loot icon, pick it up ───
+ this.physics.add.overlap(
+   this.player,
+   this.lootGroup,
+   (playerSprite, lootSprite) => {
+     if (lootSprite.collected) return;  // ignore if already picked
+     lootSprite.collected = true;
+
+     // 1) Add to player inventory: either stack if the same icon, or push new
+     const inv = this.playerInv;
+     const existing = inv.find(i => i.iconKey === lootSprite.itemKey);
+     if (existing) {
+       existing.count += lootSprite.quantity;
+     } else {
+       inv.push({
+         iconKey: lootSprite.itemKey,
+         count: lootSprite.quantity
+       });
+     }
+
+     // 2) “pop” the icon with a quick scale between, then destroy
+     this.tweens.add({
+       targets: lootSprite,
+       scaleX: 1.5,
+       scaleY: 1.5,
+       alpha: 0,
+       duration: 200,
+       onComplete: () => lootSprite.destroy()
+     });
+
+     // 3) If inventory is open, refresh it immediately
+     if (this.scene.isActive('InventoryScene')) {
+       this.events.emit('refreshInventory', this.playerInv);
+     }
+   }
+ );
           // ─── (9) MANAGERS ──────────────────────────────────────────
           this.npcManager   = new NPCManager(this);
           this.npcManager.createFromObjects(objs);
@@ -235,6 +271,42 @@
               }
             });
           });
+  /**
+   * Create one or more loot‐icons at (screenX, screenY).
+   * @param {number} x   – screen‐space X
+   * @param {number} y   – screen‐space Y
+   * @param {string} key – texture key for the loot (e.g. 'loot-coin')
+   * @param {number} amount – how many of this item to drop
+   */
+  spawnLoot(x, y, key, amount = 1) {
+    // We’ll drop `amount` separate icons, scattered slightly:
+    for (let i = 0; i < amount; i++) {
+      const dx = Phaser.Math.Between(-8, 8);
+      const dy = Phaser.Math.Between(-8, 8);
+
+      const loot = this.add
+        .image(x + dx, y + dy, key)
+        .setOrigin(0.5, 0.5)
+        .setDepth(y + dy); // so it appears “on the ground” in iso
+
+      loot.setInteractive();
+      loot.itemKey  = key;      // e.g. 'loot-coin'
+      loot.quantity = 1;        // each icon represents 1 coin (or 1 potion)
+      loot.collected = false;
+
+      // Give it a small bounce‐in tween so it “pops” from the ground:
+      this.tweens.add({
+        targets: loot,
+        y: (y + dy) - 8,
+        ease: 'Power1',
+        duration: 200,
+        yoyo: true
+      });
+
+      // Add to our lootGroup so we can manage collection
+      this.lootGroup.add(loot);
+    }
+  }       
         } // End of MainScene.create()
 
         createPlayerAnims(){
