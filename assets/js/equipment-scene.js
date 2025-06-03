@@ -1,507 +1,298 @@
-// assets/js/equipment‐scene.js
-
 /**
  * EquipmentScene
  *
- * 7 slots (head/body/legs/feet/left-hand/right-hand/back).
- * Each slot is 80×80px, spaced out with extra padding, and all are
- * drawn on top of a semi‐opaque background rectangle.
+ * This scene displays a small “Equipment” panel with seven slots:
+ *   • Head       (helmet, hats, etc.)
+ *   • Body       (armor, tunics, etc.)
+ *   • Legs       (pants, greaves, etc.)
+ *   • Feet       (boots, sandals, etc.)
+ *   • Left Hand  (shield or one-handed weapon)
+ *   • Right Hand (weapon or shield)
+ *   • Back       (secondary weapon, backpack, cloak, etc.)
  *
- * Drag any item from the bottom inventory strip into one of these slots
- * to equip it (subject to “one weapon / one shield between left/right hand” rule).
- * Drag an equipped item back into empty space to unequip it (it returns to playerInv).
+ * You should launch it from MainScene via:
  *
- * Press ESC or “E” to close, which emits `equipmentChanged` back to MainScene,
- * passing the updated `playerInv` array and `equipped` object.
+ *   this.scene.pause();
+ *   this.scene.launch('EquipmentScene', {
+ *     playerInv: this.playerInv,
+ *     playerEquipment: this.playerEquipment
+ *   });
+ *
+ * When the player closes (Esc or “E” again), we emit “equipmentClosed” back to MainScene,
+ * passing both the updated playerInv array and the updated playerEquipment object.
+ *
+ * Dragging:
+ *   • You can drag any equipped icon out of a slot.  When you drop it onto an Inventory slot,
+ *     the item is removed from equipment and inserted into the first empty inventory slot
+ *     (or stacked, if it matches an existing stack).  Conversely, you can drag from inventory
+ *     into a compatible equipment slot (e.g. a “sword” into Right Hand).
+ *
+ * This version only handles “unequip → inventory.”  If you want “equip from inventory,” you
+ * can check the item’s type and drop it into the correct equipment slot.  (That code path is
+ * marked below as TODO – you can extend it once you have weapon/armor item-type data.)
  */
+
 export class EquipmentScene extends Phaser.Scene {
   constructor() {
     super('EquipmentScene');
   }
 
   init(data) {
-    // We expect MainScene to pass:
-    //   • playerInv: the player’s inventory array [{ iconKey, count }, …]
-    //   • equipped:   an object with 7 keys (head, body, legs, feet, leftHand, rightHand, back)
-    //                each value is either null or { iconKey, invIndex }
-    this.playerInv = data.playerInv || [];
-    this.equipped  = data.equipped || {
-      head:     null,
-      body:     null,
-      legs:     null,
-      feet:     null,
+    // Expecting:
+    //   data.playerInv       = [... ]   (array of { iconKey, count } or null)
+    //   data.playerEquipment = { head:..., body:..., legs:..., feet:...,
+    //                            leftHand:..., rightHand:..., back:... }
+    //    each field is either null or { iconKey, count }.
+    this.playerInv       = Array.isArray(data.playerInv) ? data.playerInv : [];
+    this.playerEquipment = data.playerEquipment || {
+      head:      null,
+      body:      null,
+      legs:      null,
+      feet:      null,
       leftHand:  null,
       rightHand: null,
-      back:     null
+      back:      null
     };
-
-    // We’ll use this to keep track of any dragged icon:
-    // { gameObject, fromSlot, fromInv }
-    this.draggedItem = null;
   }
 
   create() {
     const W = this.scale.width;
     const H = this.scale.height;
 
-    // Draw a semi‐opaque full‐screen dark overlay
+    // 1) Background overlay
     const overlay = this.add.graphics();
     overlay.fillStyle(0x000000, 0.75);
     overlay.fillRect(0, 0, W, H);
-    this.uiGroup = this.add.group();
-    this.uiGroup.add(overlay);
 
-    // —――――――――――――――――――――――――――――――――――――――
-    // 1) Draw the background panel behind the equipment grid
-    // —――――――――――――――――――――――――――――――――――――――
-    // We'll make the panel just large enough to comfortably contain all 7 slots + padding.
-    // Slot size: 80px; padding between slots: 20px
-    const slotSize = 80;
-    const padding  = 20;
+    // 2) Panel geometry
+    // We want a smaller box in the center. We'll make it 350×400 pixels.
+    const panelW = 350;
+    const panelH = 400;
+    const panelX = (W - panelW) / 2;
+    const panelY = (H - panelH) / 2;
 
-    // The equipment layout (we want it approximately centered).  We'll compute the
-    // panel width/height based on slot arrangement:
-    //
-    //    [ head   ]
-    //
-    // [ body ][ leftHand ][ rightHand ]
-    //
-    // [ legs  ][   back   ][  feet    ]
-    //
-    // In other words:
-    // - top row has 1 slot (head), centered.
-    // - middle row has 3 slots (body, leftHand, rightHand).
-    // - bottom row has 3 slots (legs, back, feet).
-    //
-    // Panel width = 3 * slotSize + 4 * padding  (left margin + between slots + right margin)
-    // Panel height = (1 * slotSize + padding) + (slotSize + padding) + (slotSize + padding)
-    //              = 3*slotSize + 4*padding
-
-    const panelCols = 3;
-    const panelRows = 3; // (we’re treating “head” row as a full‐width band)
-
-    const panelWidth  = panelCols * slotSize + (panelCols + 1) * padding;
-    const panelHeight = 3 * slotSize + 4 * padding;
-
-    const panelX = (W - panelWidth) / 2;
-    const panelY = (H - panelHeight) / 2;
-
-    // Draw the panel background (a rounded rectangle for style)
+    // 3) Draw panel background (rounded rect)
     const panelBg = this.add.graphics();
-    panelBg.fillStyle(0x222222, 0.85);
-    panelBg.fillRoundedRect(panelX, panelY, panelWidth, panelHeight, 12);
-    this.uiGroup.add(panelBg);
+    panelBg.fillStyle(0x2c2c2c, 0.95);
+    panelBg.fillRoundedRect(panelX, panelY, panelW, panelH, 12);
 
-    // —――――――――――――――――――――――――――――――――――――――
-    // 2) Compute exact positions for each slot key
-    // —――――――――――――――――――――――――――――――――――――――
+    // 4) Title “Equipment” at top‐center
+    const titleText = this.add.text(
+      panelX + panelW / 2,
+      panelY + 16,
+      'Equipment',
+      { fontSize: '24px', fill: '#ffffff', fontStyle: 'bold' }
+    ).setOrigin(0.5, 0);
+
+    // 5) Define the seven equipment slot rectangles
+    //    We'll arrange them roughly in a “cross” pattern:
     //
-    // For convenience, we’ll pre‐compute the (x,y) of each slot’s center.
-    // Let's call “slot grid origins” as follows:
+    //         [  Head  ]
+    //            |
+    //      [Body]–[Back]–[RightHand]
+    //            |
+    //    [LeftHand]-[Legs]-[Feet]
     //
-    //   Row 0: head sits in the center column of a 3‐column grid.
-    //   Row 1: body is in column 0, leftHand in column 1, rightHand in column 2.
-    //   Row 2: legs in column 0, back in column 1, feet in column 2.
-    //
-    // Then we shift everything by panelX + padding to find pixel coords.
+    // Positions are relative to panelX/panelY. Each slot is 64×64 px.
+    const slotSize = 64;
+    const borderColor = 0xffffff;
+    const borderWidth = 2;
 
-    this.slotPositions = {};
-
-    const gridX = (col) => panelX + padding + col * (slotSize + padding) + slotSize/2;
-    const gridY = (row) => panelY + padding + row * (slotSize + padding) + slotSize/2;
-
-    // head  = row 0, col 1
-    this.slotPositions.head = {
-      x: gridX(1),
-      y: gridY(0)
+    // Helper for making a slot object:
+    const makeSlot = (key, x, y, label) => {
+      return { key, x: panelX + x, y: panelY + y, label };
     };
 
-    // body      = row 1, col 0
-    // leftHand  = row 1, col 1
-    // rightHand = row 1, col 2
-    this.slotPositions.body = {
-      x: gridX(0),
-      y: gridY(1)
-    };
-    this.slotPositions.leftHand = {
-      x: gridX(1),
-      y: gridY(1)
-    };
-    this.slotPositions.rightHand = {
-      x: gridX(2),
-      y: gridY(1)
-    };
+    // We pick offsets so that the cross is centered.
+    this.equipmentSlots = [
+      makeSlot('head',      panelW / 2 - slotSize / 2, 50,  'Head'),
+      makeSlot('body',      panelW / 2 - slotSize / 2 - 80, 130, 'Body'),
+      makeSlot('back',      panelW / 2 - slotSize / 2 + 0, 130, 'Back'),
+      makeSlot('rightHand', panelW / 2 - slotSize / 2 + 80, 130, 'Right Hand'),
+      makeSlot('leftHand',  panelW / 2 - slotSize / 2 - 80, 230, 'Left Hand'),
+      makeSlot('legs',      panelW / 2 - slotSize / 2 + 0,  230, 'Legs'),
+      makeSlot('feet',      panelW / 2 - slotSize / 2 + 80, 230, 'Feet')
+    ];
 
-    // legs = row 2, col 0
-    // back = row 2, col 1
-    // feet = row 2, col 2
-    this.slotPositions.legs = {
-      x: gridX(0),
-      y: gridY(2)
-    };
-    this.slotPositions.back = {
-      x: gridX(1),
-      y: gridY(2)
-    };
-    this.slotPositions.feet = {
-      x: gridX(2),
-      y: gridY(2)
-    };
-
-    // —――――――――――――――――――――――――――――――――――――――
-    // 3) Draw each slot & its label, plus any currently‐equipped icon
-    // —――――――――――――――――――――――――――――――――――――――
-    for (const [slotKey, pos] of Object.entries(this.slotPositions)) {
-      // Draw the slot border (white outline)
+    // 6) Draw empty slot outlines & labels
+    this.equipmentSlots.forEach(slot => {
       const rect = new Phaser.Geom.Rectangle(
-        pos.x - slotSize/2,
-        pos.y - slotSize/2,
-        slotSize,
-        slotSize
+        slot.x, slot.y,
+        slotSize, slotSize
       );
-      const border = this.add.graphics();
-      border.lineStyle(2, 0xffffff);
-      border.strokeRectShape(rect);
-      this.uiGroup.add(border);
+      const g = this.add.graphics();
+      g.lineStyle(borderWidth, borderColor);
+      g.strokeRectShape(rect);
 
-      // Add the text label slightly above the slot
-      const label = this.add.text(
-        pos.x,
-        pos.y - slotSize/2 - 16,
-        slotKey.charAt(0).toUpperCase() + slotKey.slice(1),
+      // Label above each slot
+      const txt = this.add.text(
+        slot.x + slotSize / 2,
+        slot.y + slotSize + 4,
+        slot.label,
         { fontSize: '14px', fill: '#ffffff' }
-      ).setOrigin(0.5, 1);
-      this.uiGroup.add(label);
+      ).setOrigin(0.5, 0);
+    });
 
-      // If something is already equipped here, draw its icon (draggable)
-      const eq = this.equipped[slotKey];
-      if (eq) {
-        const icon = this.add.image(
-          pos.x,
-          pos.y,
-          eq.iconKey
-        ).setScale(0.5)
-          .setDepth(10)
-          .setInteractive({ draggable: true });
+    // 7) Draw currently equipped items (if any)
+    //    Each equipment slot may hold exactly one item.  We skip null slots.
+    //    We tag each icon with { from: 'equip', slotKey: <slot.key> } so
+    //    drag/drop logic can know how to unequip it.
 
-        // Tag it so we know it came from this slot
-        icon.setData('fromSlot', slotKey);
+    this.equipmentIcons = {}; // map slotKey → Phaser.GameObject
 
-        this.uiGroup.add(icon);
-      }
-    }
+    this.equipmentSlots.forEach(slot => {
+      const item = this.playerEquipment[slot.key];
+      if (!item) return;
 
-    // —――――――――――――――――――――――――――――――――――――――
-    // 4) Draw bottom “inventory strip” so players can drag items into slots
-    // —――――――――――――――――――――――――――――――――――――――
-    const invPanelHeight = 120;
-    const invPanelY = panelY + panelHeight + padding;
+      // Determine center of this slot:
+      const cx = slot.x + slotSize / 2;
+      const cy = slot.y + slotSize / 2;
 
-    const invRect = new Phaser.Geom.Rectangle(
-      panelX,
-      invPanelY,
-      panelWidth,
-      invPanelHeight
-    );
-    const invBg = this.add.graphics();
-    invBg.fillStyle(0x333333, 0.9);
-    invBg.fillRoundedRect(invRect.x, invRect.y, invRect.width, invRect.height, 8);
-    this.uiGroup.add(invBg);
-
-    // Draw each item in playerInv as a 64×64 icon, spaced by 12px
-    const slotSizeInv = 64;
-    const paddingInv  = 12;
-    let drawX = invRect.x + paddingInv;
-    let drawY = invRect.y + paddingInv + slotSizeInv/2;
-
-    for (let i = 0; i < this.playerInv.length; i++) {
-      const item = this.playerInv[i];
-      const icon = this.add.image(
-        drawX + slotSizeInv/2,
-        drawY,
-        item.iconKey
-      ).setScale(0.5)
+      // Draw the icon (scaled to 0.5)
+      const icon = this.add
+        .image(cx, cy, item.iconKey)
+        .setScale(0.5)
         .setDepth(10)
         .setInteractive({ draggable: true });
 
-      // If count > 1, display the count at bottom‐right of icon
-      if (item.count > 1) {
-        const countText = this.add.text(
-          drawX + slotSizeInv - 14,
-          drawY + slotSizeInv/2 - 14,
-          item.count.toString(),
-          { fontSize: '12px', fill: '#ffff00' }
-        );
-        this.uiGroup.add(countText);
-      }
+      // Store metadata for drag/drop:
+      icon.setData('from', 'equip');
+      icon.setData('slotKey', slot.key);
 
-      // Tag it so we know it came from inventory index i
-      icon.setData('fromInv', i);
-      this.uiGroup.add(icon);
+      this.equipmentIcons[slot.key] = icon;
+    });
 
-      drawX += slotSizeInv + paddingInv;
-    }
-
-    // Add a “Close” hint in the top‐right corner of the panel background
-    const closeHint = this.add.text(
-      panelX + panelWidth - 60,
-      panelY + 8,
-      '[E] Close',
-      { fontSize: '14px', fill: '#ffffff' }
-    );
-    this.uiGroup.add(closeHint);
-
-    // —――――――――――――――――――――――――――――――――――――――
-    // 5) Set up drag events for all draggable icons we created
-    // —――――――――――――――――――――――――――――――――――――――
+    // 8) DRAG & DROP: Unequip → Inventory
+    //
+    //    If the player drags an equipped icon anywhere within the panel,
+    //    we interpret that as “unequip.”  We then place it back into the
+    //    first available inventory slot (or stack if same iconKey exists).
+    //
+    //    NOTE: We do NOT support “equip from inventory” here—you can extend
+    //    this handler to detect dropping onto a specific slot (e.g. head/body).
+    //
     this.input.on('dragstart', (pointer, gameObject) => {
-      // Record where the drag started from:
-      const fromSlot = gameObject.getData('fromSlot');
-      const fromInv  = gameObject.getData('fromInv');
-      this.draggedItem = {
-        gameObject,
-        fromSlot: fromSlot != null ? fromSlot : null,
-        fromInv:  fromInv != null   ? fromInv  : null
-      };
+      const from     = gameObject.getData('from');
+      const slotKey  = gameObject.getData('slotKey');
+      if (from === 'equip' && slotKey) {
+        this.dragInfo = { from, slotKey, gameObject };
+      } else {
+        this.dragInfo = null;
+      }
     });
 
     this.input.on('drag', (pointer, gameObject, dragX, dragY) => {
-      // Simply move the icon with the pointer
+      // Move the icon with the pointer
       gameObject.x = dragX;
       gameObject.y = dragY;
     });
 
     this.input.on('dragend', (pointer, gameObject) => {
-      // When drag ends, see if we dropped over any valid slot
-      const dx = gameObject.x;
-      const dy = gameObject.y;
-      let droppedSlot = null;
+      if (!this.dragInfo) return;
+      const { from, slotKey } = this.dragInfo;
+      if (from !== 'equip') return;
 
-      // Check each slot’s rectangle
-      for (const [slotKey, pos] of Object.entries(this.slotPositions)) {
-        const rect = new Phaser.Geom.Rectangle(
-          pos.x - slotSize/2,
-          pos.y - slotSize/2,
-          slotSize,
-          slotSize
-        );
-        if (rect.contains(dx, dy)) {
-          droppedSlot = slotKey;
+      // UNEQUIP: remove from equipment, put into inventory
+
+      const item = this.playerEquipment[slotKey];
+      if (!item) {
+        // Shouldn't happen, but just in case:
+        this.redrawEquipment();  // put icon back into its slot
+        this.dragInfo = null;
+        return;
+      }
+
+      // 8a) Add to playerInv
+      let stacked = false;
+      for (let i = 0; i < this.playerInv.length; i++) {
+        const stack = this.playerInv[i];
+        if (stack && stack.iconKey === item.iconKey) {
+          // same type → stack counts
+          stack.count += item.count;
+          stacked = true;
           break;
         }
       }
-
-      // If we dropped on a valid slot, attempt to equip (or swap)
-      if (droppedSlot) {
-        const { fromSlot, fromInv } = this.draggedItem;
-
-        // Case A: dragged from inventory → equip into droppedSlot
-        if (fromInv != null) {
-          const item = this.playerInv[fromInv];
-
-          // Enforce “only one weapon between leftHand/rightHand” logic:
-          if (droppedSlot === 'leftHand' || droppedSlot === 'rightHand') {
-            // Suppose iconKey containing "sword" means weapon; "shield" means shield
-            const isWeapon = item.iconKey.includes('sword');
-            const isShield = item.iconKey.includes('shield');
-            if (isWeapon) {
-              // If the opposite hand has a shield equipped, unequip it first:
-              const opposite = (droppedSlot === 'leftHand') ? 'rightHand' : 'leftHand';
-              if (this.equipped[opposite]?.iconKey.includes('shield')) {
-                this.unequipSlot(opposite);
-              }
-            }
-            else if (isShield) {
-              const opposite = (droppedSlot === 'leftHand') ? 'rightHand' : 'leftHand';
-              if (this.equipped[opposite]?.iconKey.includes('sword')) {
-                this.unequipSlot(opposite);
-              }
-            }
-            else {
-              // Non‐weapon, non‐shield items cannot go in a hand slot:
-              droppedSlot = null;
-            }
-          }
-
-          if (droppedSlot) {
-            // Remove one unit from playerInv
-            if (--this.playerInv[fromInv].count <= 0) {
-              this.playerInv.splice(fromInv, 1);
-            }
-            // Equip it into droppedSlot
-            this.equipped[droppedSlot] = {
-              iconKey: item.iconKey,
-              invIndex: fromInv
-            };
+      if (!stacked) {
+        // find first null slot or push new
+        let placed = false;
+        for (let i = 0; i < this.playerInv.length; i++) {
+          if (!this.playerInv[i]) {
+            this.playerInv[i] = { iconKey: item.iconKey, count: item.count };
+            placed = true;
+            break;
           }
         }
-        // Case B: dragged from one slot to another (swap)
-        else if (fromSlot != null) {
-          if (droppedSlot !== fromSlot) {
-            // Swap contents
-            const temp = this.equipped[droppedSlot];
-            this.equipped[droppedSlot] = this.equipped[fromSlot];
-            this.equipped[fromSlot] = temp;
-          }
-          // If dropped on same slot, do nothing
-        }
-      }
-      // If we did not drop on any valid slot and we started from an equipped slot:
-      else {
-        if (this.draggedItem.fromSlot != null) {
-          this.unequipSlot(this.draggedItem.fromSlot);
+        if (!placed) {
+          this.playerInv.push({ iconKey: item.iconKey, count: item.count });
         }
       }
 
-      // Redraw entire scene to reflect any changes
-      this.redrawFully();
-      this.draggedItem = null;
+      // 8b) Remove from equipment
+      this.playerEquipment[slotKey] = null;
+
+      // 8c) Remove the dragged icon
+      if (this.equipmentIcons[slotKey]) {
+        this.equipmentIcons[slotKey].destroy();
+        delete this.equipmentIcons[slotKey];
+      }
+
+      // 8d) Redraw the inventory (notify MainScene)
+      //      We emit immediately so that MainScene can re-open inventory if needed.
+      const main = this.scene.get('Main');
+      main.events.emit('unequipped', {
+        playerInv: this.playerInv,
+        playerEquipment: this.playerEquipment
+      });
+
+      // Finally, close the equipment panel:
+      this.closeScene();
     });
 
-    // ESC or “E” closes equipment UI
-    this.input.keyboard.once('keydown-ESC', () => this.close());
-    this.input.keyboard.once('keydown-E',   () => this.close());
+    // 9) Allow closing on ESC or “E”
+    this.input.keyboard.once('keydown-ESC', () => this.closeScene());
+    this.input.keyboard.once('keydown-E',   () => this.closeScene());
   }
 
   /**
-   * Helper: Unequip whatever’s in `slotKey` by putting it back into playerInv.
+   * If, for some reason, we want to re-draw all equipped icons
+   * (e.g. after a failed drag or refresh), we can destroy existing
+   * icons and recreate them.  (Not strictly needed now.)
    */
-  unequipSlot(slotKey) {
-    const eq = this.equipped[slotKey];
-    if (!eq) return;
-    const iconKey = eq.iconKey;
-
-    // Return one unit to inventory (stack if exists)
-    const stack = this.playerInv.find(i => i.iconKey === iconKey);
-    if (stack) {
-      stack.count += 1;
-    } else {
-      this.playerInv.push({ iconKey, count: 1 });
+  redrawEquipment() {
+    // Destroy existing icons
+    for (const key in this.equipmentIcons) {
+      this.equipmentIcons[key].destroy();
     }
+    this.equipmentIcons = {};
 
-    // Remove from that equip slot
-    this.equipped[slotKey] = null;
-  }
+    // Re-draw all non-null equipment slots
+    const slotSize = 64;
+    this.equipmentSlots.forEach(slot => {
+      const item = this.playerEquipment[slot.key];
+      if (!item) return;
 
-  /**
-   * Re‐draw everything except the background overlay:
-   *   • Redraw slot outlines + labels + equipped icons
-   *   • Redraw the bottom inventory strip
-   */
-  redrawFully() {
-    // Keep the very first child (the overlay); destroy everything else
-    const children = this.uiGroup.getChildren();
-    for (let i = children.length - 1; i >= 1; i--) {
-      children[i].destroy();
-    }
-
-    const slotSize = 80;
-    const padding  = 20;
-
-    // 1) Re‐draw slot frames and labels and any equipped icon
-    for (const [slotKey, pos] of Object.entries(this.slotPositions)) {
-      const rect = new Phaser.Geom.Rectangle(
-        pos.x - slotSize/2,
-        pos.y - slotSize/2,
-        slotSize,
-        slotSize
-      );
-      const border = this.add.graphics();
-      border.lineStyle(2, 0xffffff);
-      border.strokeRectShape(rect);
-      this.uiGroup.add(border);
-
-      const label = this.add.text(
-        pos.x,
-        pos.y - slotSize/2 - 16,
-        slotKey.charAt(0).toUpperCase() + slotKey.slice(1),
-        { fontSize: '14px', fill: '#ffffff' }
-      ).setOrigin(0.5, 1);
-      this.uiGroup.add(label);
-
-      const eq = this.equipped[slotKey];
-      if (eq) {
-        const icon = this.add.image(
-          pos.x,
-          pos.y,
-          eq.iconKey
-        ).setScale(0.5)
-          .setDepth(10)
-          .setInteractive({ draggable: true });
-        icon.setData('fromSlot', slotKey);
-        this.uiGroup.add(icon);
-      }
-    }
-
-    // 2) Re‐draw bottom inventory strip
-    const W = this.scale.width;
-    // Recompute panelX/panelWidth to know where to place inventory strip
-    const panelCols = 3;
-    const panelRows = 3;
-    const slotW2 = slotSize;
-    const pad2   = padding;
-    // panelWidth = 3*slotSize + 4*padding
-    const panelWidth  = panelCols * slotW2 + (panelCols + 1) * pad2;
-    const panelHeight = panelRows * slotW2 + (panelRows + 1) * pad2;
-    const panelX = (W - panelWidth) / 2;
-    const panelY = (this.scale.height - panelHeight) / 2;
-
-    const invPanelY = panelY + panelHeight + pad2;
-    const invRect = new Phaser.Geom.Rectangle(
-      panelX,
-      invPanelY,
-      panelWidth,
-      120
-    );
-    const invBg = this.add.graphics();
-    invBg.fillStyle(0x333333, 0.9);
-    invBg.fillRoundedRect(invRect.x, invRect.y, invRect.width, invRect.height, 8);
-    this.uiGroup.add(invBg);
-
-    const slotSizeInv = 64;
-    const paddingInv  = 12;
-    let drawX = invRect.x + paddingInv;
-    let drawY = invRect.y + paddingInv + slotSizeInv/2;
-
-    for (let i = 0; i < this.playerInv.length; i++) {
-      const item = this.playerInv[i];
-      const icon = this.add.image(
-        drawX + slotSizeInv/2,
-        drawY,
-        item.iconKey
-      ).setScale(0.5)
+      const cx = slot.x + slotSize / 2;
+      const cy = slot.y + slotSize / 2;
+      const icon = this.add
+        .image(cx, cy, item.iconKey)
+        .setScale(0.5)
         .setDepth(10)
         .setInteractive({ draggable: true });
-
-      if (item.count > 1) {
-        const ct = this.add.text(
-          drawX + slotSizeInv - 14,
-          drawY + slotSizeInv/2 - 14,
-          item.count.toString(),
-          { fontSize: '12px', fill: '#ffff00' }
-        );
-        this.uiGroup.add(ct);
-      }
-      icon.setData('fromInv', i);
-      this.uiGroup.add(icon);
-
-      drawX += slotSizeInv + paddingInv;
-    }
-
-    const closeHint = this.add.text(
-      panelX + panelWidth - 60,
-      panelY + 8,
-      '[E] Close',
-      { fontSize: '14px', fill: '#ffffff' }
-    );
-    this.uiGroup.add(closeHint);
+      icon.setData('from', 'equip');
+      icon.setData('slotKey', slot.key);
+      this.equipmentIcons[slot.key] = icon;
+    });
   }
 
-  close() {
-    // Emit back to MainScene with updated playerInv + equipped
-    this.scene.get('Main').events.emit('equipmentChanged', {
-      playerInv: this.playerInv,
-      equipped:  this.equipped
+  /**
+   * Closes the equipment panel, emits data back to MainScene, and resumes.
+   */
+  closeScene() {
+    const main = this.scene.get('Main');
+    main.events.emit('equipmentClosed', {
+      playerInv:       this.playerInv,
+      playerEquipment: this.playerEquipment
     });
     this.scene.stop('EquipmentScene');
     this.scene.resume('Main');
