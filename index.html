@@ -63,8 +63,8 @@
         constructor(){ super('Preload'); }
         preload(){
           this.load.tilemapTiledJSON('room', 'assets/maps/room.json');
-          this.load.spritesheet('tileset', 'assets/tiles/tileset.png', { frameWidth:38, frameHeight:38 });
-          this.load.spritesheet('player','assets/player/Chibi-character-template_skin0_part2_by_AxulArt.png', { frameWidth:32, frameHeight:32 });
+          this.load.spritesheet('tileset','assets/tiles/tileset.png',{ frameWidth:38, frameHeight:38 });
+          this.load.spritesheet('player','assets/player/Chibi-character-template_skin0_part2_by_AxulArt.png',{ frameWidth:32, frameHeight:32 });
           this.load.image('chest',   'assets/objects/chest.png');
           this.load.image('npc',     'assets/objects/npc.png');
           this.load.image('potion',  'assets/icons/potion.png');
@@ -81,32 +81,32 @@
 
         create(){
           // 1) Tilemap + isometric offsets
-          const map = this.make.tilemap({ key: 'room' });
-          map.addTilesetImage('tileset', 'tileset', map.tileWidth, map.tileHeight);
-          this.tileW = map.tileWidth;
-          this.tileH = map.tileHeight;
-          this.mapW  = map.width;
-          this.mapH  = map.height;
+          const map = this.make.tilemap({ key:'room' });
+          map.addTilesetImage('tileset','tileset',map.tileWidth,map.tileHeight);
+          this.tileW   = map.tileWidth;
+          this.tileH   = map.tileHeight;
+          this.mapW    = map.width;
+          this.mapH    = map.height;
           this.offsetX = this.scale.width  / 2;
           this.offsetY = (this.scale.height - (this.mapW + this.mapH)*(this.tileH/2)) / 2 + this.tileH/2;
 
           // 2) Draw floor layer
-          this.floorData = map.getLayer('Floor').data.map(row => row.map(tile => tile.index > 0));
-          this.collisionData = map.getLayer('Collision').data.map(row => row.map(tile => tile.index > 0));
-          map.getLayer('Floor').data.forEach((row, y) => {
-            row.forEach((tile, x) => {
-              if (tile.index > 0) {
-                const frame = tile.index - 1;
+          this.floorData     = map.getLayer('Floor').data.map(r => r.map(t => t.index>0));
+          this.collisionData = map.getLayer('Collision').data.map(r => r.map(t => t.index>0));
+          map.getLayer('Floor').data.forEach((row,y) => {
+            row.forEach((t,x) => {
+              if (t.index > 0) {
+                const frame = t.index - 1;
                 const sx = (x - y)*(this.tileW/2) + this.offsetX;
                 const sy = (x + y)*(this.tileH/2) + this.offsetY;
-                this.add.image(sx, sy, 'tileset', frame).setDepth(sy);
+                this.add.image(sx,sy,'tileset',frame).setDepth(sy);
               }
             });
           });
 
-          // 3) Tiled objects
+          // 3) Tiled objects + spawn point
           const objs       = map.getObjectLayer('Objects').objects;
-          const spawnPoint = objs.find(o => o.name === 'PlayerSpawn');
+          const spawnPoint = objs.find(o => o.name==='PlayerSpawn');
 
           // 4) Inventory & chests
           this.playerInv = [
@@ -136,10 +136,10 @@
               this.chests.push(chest);
             }
             else if (o.type === 'NPC') {
-              // Handled by NPCManager later
+              // Handled by NPCManager below
             }
             else if (o.type === 'MobSpawn') {
-              const props = (o.properties||[]).reduce((acc,p)=>{ acc[p.name]=p.value; return acc; }, {});
+              const props     = (o.properties||[]).reduce((acc,p)=>{ acc[p.name]=p.value; return acc; }, {});
               const mobType   = props.mobType   || 'slime';
               const spawnRate = props.spawnRate || 0.0;
               if (spawnRate === 0) {
@@ -154,22 +154,25 @@
             }
           });
 
-          // 7) Create player as a physics sprite
-          this.player = this.physics.add.sprite(0, 0, 'player').setOrigin(0.5,1);
+          // 7) Create player as a physics‐enabled sprite
+          this.player = this.physics.add.sprite(0,0,'player').setOrigin(0.5,1);
           this.playerIsoX = spawnPoint.x / this.tileW;
           this.playerIsoY = spawnPoint.y / this.tileH;
           const px = (this.playerIsoX - this.playerIsoY)*(this.tileW/2) + this.offsetX;
           const py = (this.playerIsoX + this.playerIsoY)*(this.tileH/2) + this.offsetY;
           this.player.setPosition(px, py).setDepth(py);
           this.player.body.setAllowGravity(false);
-          this.player.body.setSize(16, 16);
+          this.player.body.setSize(16,16);
+
+          // 7a) Register walking animations **before** we ever use them
+          this.createPlayerAnims();
 
           // 8) Keyboard & camera
           this.keys = this.input.keyboard.addKeys('W,A,S,D');
           this.keys.SPACE = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
           this.keys.SPACE.on('down', () => this.playerAttack());
 
-          this.cameras.main.setBounds(0,0, map.widthInPixels, map.heightInPixels);
+          this.cameras.main.setBounds(0,0,map.widthInPixels,map.heightInPixels);
           this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
 
           // 9) Overlap for loot pickup
@@ -214,7 +217,7 @@
           this.dialogueTree = new DialogueTreeManager(this);
           this.tradeManager = new TradeManager(this);
 
-          // (10a) Load quest dialog trees
+          // 10a) Load quest dialog trees
           this.questManager.quests.forEach(quest => {
             if (!quest.dialogueFile) return;
             import(`./assets/js/dialogues/${quest.dialogueFile}`)
@@ -225,7 +228,7 @@
               .catch(err => console.warn(`Failed to load quest tree for ${quest.id}`, err));
           });
 
-          // (10b) Load NPC main dialog trees
+          // 10b) Load NPC main dialog trees
           this.npcManager.npcs.forEach(npc => {
             import(`./assets/js/dialogues/${npc.npcId}-tree.js`)
               .then(mod => {
@@ -235,7 +238,7 @@
               .catch(err => console.warn(`No dialogue module for ${npc.npcId}`, err));
           });
 
-          // 11) Conversations (F key)
+          // 11) Conversations (press “F”)
           this.npcManager.enableConversations('F', npc =>
             this.dialogueTree.startDialogue(npc.npcId)
           );
@@ -245,11 +248,11 @@
             this.playerInv = data.playerInv;
             this.scene.resume();
           });
-          this.input.keyboard.on('keydown-I', () => this.openInventory(this.playerInv, null));
+          this.input.keyboard.on('keydown-I', () => this.openInventory(this.playerInv,null));
           this.input.keyboard.on('keydown-E', () => {
             const { x, y } = this.player;
             this.chests.forEach(ch => {
-              if (Phaser.Math.Distance.Between(x, y, ch.x, ch.y) < 50) {
+              if (Phaser.Math.Distance.Between(x,y,ch.x,ch.y) < 50) {
                 this.openInventory(this.playerInv, ch.inventory);
               }
             });
@@ -257,27 +260,25 @@
         } // ← end of create()
 
         createPlayerAnims(){
-  [
-    ['down',       0,  3],
-    ['left',      12, 15],
-    ['right',     24, 27],
-    ['up',        36, 39],
-    ['down-left', 48, 51],
-    ['down-right',60, 63],
-    ['up-left',   72, 75],
-    ['up-right',  84, 87]
-  ].forEach(([dir, startFrame, endFrame]) => {
-    this.anims.create({
-      key: `walk-${dir}`,                         // e.g. "walk-up"
-      frames: this.anims.generateFrameNumbers('player', {
-        start: startFrame, 
-        end: endFrame
-      }),
-      frameRate: 8,
-      repeat: -1
-    });
-  });
-}
+          // Register all eight “walk-…” animations
+          [
+            ['down',       0,  3],
+            ['left',      12, 15],
+            ['right',     24, 27],
+            ['up',        36, 39],
+            ['down-left', 48, 51],
+            ['down-right',60, 63],
+            ['up-left',   72, 75],
+            ['up-right',  84, 87]
+          ].forEach(([dir, startFrame, endFrame]) => {
+            this.anims.create({
+              key: `walk-${dir}`, 
+              frames: this.anims.generateFrameNumbers('player', { start: startFrame, end: endFrame }),
+              frameRate: 8,
+              repeat: -1
+            });
+          });
+        }
 
         openInventory(playerInv, chestInv){
           this.scene.pause();
@@ -293,85 +294,93 @@
           this.scene.launch('ChoiceScene', { question, options, callback });
         }
 
-update(time, delta) {
-  const dt = delta / 1000;
-  const speed = 3;
-  let moved = false;
-  let dir = this.lastDir || 'down';
-  let nx = this.playerIsoX, 
-      ny = this.playerIsoY;
-  const { W, A, S, D } = this.keys;
+        update(time, delta){
+          const dt = delta / 1000;
+          const speed = 3;
+          let moved = false;
+          let dir = this.lastDir || 'down';
+          let nx = this.playerIsoX;
+          let ny = this.playerIsoY;
+          const { W, A, S, D } = this.keys;
 
-  if (W.isDown) {
-    ny -= speed * dt;
-    dir = 'up';
-    moved = true;
-    this.player.play('walk-up', true);    // ← matches createPlayerAnims() key
-  }
-  else if (S.isDown) {
-    ny += speed * dt;
-    dir = 'down';
-    moved = true;
-    this.player.play('walk-down', true);
-  }
+          if (W.isDown){
+            ny -= speed * dt;
+            dir = 'up';
+            moved = true;
+            this.player.play('walk-up', true);
+          }
+          else if (S.isDown){
+            ny += speed * dt;
+            dir = 'down';
+            moved = true;
+            this.player.play('walk-down', true);
+          }
 
-  if (A.isDown) {
-    nx -= speed * dt;
-    dir = 'left';
-    moved = true;
-    this.player.play('walk-left', true);
-  }
-  else if (D.isDown) {
-    nx += speed * dt;
-    dir = 'right';
-    moved = true;
-    this.player.play('walk-right', true);
-  }
+          if (A.isDown){
+            nx -= speed * dt;
+            dir = 'left';
+            moved = true;
+            this.player.play('walk-left', true);
+          }
+          else if (D.isDown){
+            nx += speed * dt;
+            dir = 'right';
+            moved = true;
+            this.player.play('walk-right', true);
+          }
 
-  // When not moving vertically/horizontally, stop and set idle frame:
-  if (!moved) {
-    this.player.anims.stop();
-    this.player.setFrame({
-      down: 0,
-      left: 12,
-      right: 24,
-      up: 36
-    }[dir]);
-  }
-  this.lastDir = dir;
+          // ─── Collision + assignment ────────────────────────────────────
+          const tx = Math.floor(nx);
+          const ty = Math.floor(ny);
+          if (
+            nx >= 0 && nx < this.mapW &&
+            ny >= 0 && ny < this.mapH &&
+            this.floorData[ty][tx] && !this.collisionData[ty][tx]
+          ) {
+            this.playerIsoX = nx;
+            this.playerIsoY = ny;
+          }
+
+          if (!moved){
+            this.player.anims.stop();
+            this.player.setFrame({
+              down: 0,
+              left: 12,
+              right: 24,
+              up: 36
+            }[dir]);
+          }
+          this.lastDir = dir;
 
           const sx = (this.playerIsoX - this.playerIsoY)*(this.tileW/2) + this.offsetX;
           const sy = (this.playerIsoX + this.playerIsoY)*(this.tileH/2) + this.offsetY;
           this.player.setPosition(sx, sy).setDepth(sy);
 
-          // Update each enemy:
+          // Update each enemy’s AI, if any
           this.enemies.getChildren().forEach(enemy => {
-            if (enemy && enemy.preUpdate) {
+            if (enemy && enemy.preUpdate){
               enemy.preUpdate(time, delta);
             }
           });
         }
 
         playerAttack(){
-          const px = this.player.x, py = this.player.y;
+          const px = this.player.x;
+          const py = this.player.y;
           this.enemies.getChildren().forEach(enemy => {
             if (!enemy || !enemy.active) return;
             const dist = Phaser.Math.Distance.Between(px, py, enemy.x, enemy.y);
-            if (dist < enemy.hitRadius + 16) {
+            if (dist < enemy.hitRadius + 16){
               enemy.takeDamage(1);
             }
           });
         }
 
         /**
-         * Create one or more loot-icons at (screenX, screenY).
-         * @param {number} x       – screen-space X
-         * @param {number} y       – screen-space Y
-         * @param {string} key     – texture key (e.g. 'coin' or 'potion')
-         * @param {number} amount  – how many items to drop
+         * Spawn one or more loot icons at (screenX, screenY).
          */
-        spawnLoot(x, y, key, amount = 1) {
-          for (let i = 0; i < amount; i++) {
+        spawnLoot(x, y, key, amount = 1){
+          for (let i = 0; i < amount; i++){
             const dx = Phaser.Math.Between(-8, 8);
             const dy = Phaser.Math.Between(-8, 8);
 
@@ -401,7 +410,8 @@ update(time, delta) {
         constructor(){ super('DialogueScene'); }
         init(data){ this.lines = data.lines || []; }
         create(){
-          const w = this.scale.width, h = this.scale.height;
+          const w = this.scale.width;
+          const h = this.scale.height;
           this.add.graphics()
               .fillStyle(0x000000, 0.7)
               .fillRect(w/4, h/4, w/2, h/4);
@@ -427,7 +437,8 @@ update(time, delta) {
           this.callback = data.callback;
         }
         create(){
-          const w = this.scale.width, h = this.scale.height;
+          const w = this.scale.width;
+          const h = this.scale.height;
           this.add.graphics()
               .fillStyle(0x000000, 0.7)
               .fillRect(w/4, h/4, w/2, h/4);
