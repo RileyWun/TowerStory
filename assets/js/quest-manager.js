@@ -1,11 +1,8 @@
-
-import { ChoiceScene } from './dialogue-tree-manager.js';
+// assets/js/quest-manager.js
 
 export class QuestManager {
   constructor(scene) {
     this.scene = scene;
-
-    // Fill this.quests in loadQuests()
     this.quests = [];
     this.loadQuests();
   }
@@ -23,7 +20,7 @@ export class QuestManager {
         declineText: 'Not right now.',
         reward: 'coin',
         rewardCount: 5
-        // no dialogueFile – this quest’s dialog lives directly in npc2-tree.js
+        // no dialogueFile here (npc2’s tree lives in npc2‐tree.js)
       },
       {
         id: 'merchant1Quest',
@@ -40,15 +37,15 @@ export class QuestManager {
   }
 
   /**
-   * Return the quest object for a given NPC ID (or undefined if none).
+   * Find a quest for a given NPC identifier
    */
   getQuestFor(npcId) {
     return this.quests.find(q => q.npcId === npcId);
   }
 
   /**
-   * Kick off the “Accept/Decline” prompt for the specified questId.
-   * This will launch a ChoiceScene with the quest.prompt and quest.acceptText / declineText.
+   * Kick off an “Accept/Decline” prompt for the specified questId.
+   * This launches the ChoiceScene (which must already be registered in index.html).
    */
   startQuest(questId) {
     const quest = this.quests.find(q => q.id === questId);
@@ -57,39 +54,38 @@ export class QuestManager {
       return;
     }
 
-    // Launch Phaser’s ChoiceScene (which you already have registered in index.html).
-    // We pass in question = quest.prompt, options = [acceptText, declineText], callback = idx => { … }
+    // Launch the ChoiceScene that you have registered in index.html:
     this.scene.scene.launch('ChoiceScene', {
       question: quest.prompt,
       options: [quest.acceptText, quest.declineText],
       callback: idx => {
-        // idx === 0 ⇒ accepted; idx === 1 ⇒ declined
+        // idx === 0 → player accepted; idx === 1 → player declined
         if (idx === 0) {
-          // Player accepted
           this.accept(questId);
-          // After granting the reward, show a short “Thank you” text dialog:
+
+          // After giving the reward, show a short “Thank you!” dialog:
           this.scene.scene.launch('DialogueScene', {
             lines: ['Thank you for helping me!']
           });
-          // When that text dialog closes, resume main.
           this.scene.events.once('dialogueClosed', () => {
+            // Once the “Thank you…” dialog is closed, stop it and resume Main
             this.scene.scene.stop('DialogueScene');
+            this.scene.scene.resume('Main');
           });
         } else {
-          // Player declined – just close ChoiceScene and resume
+          // Player declined → simply close ChoiceScene and resume Main
           this.scene.scene.stop('ChoiceScene');
-          this.scene.resume();
+          this.scene.scene.resume('Main');
         }
       }
     });
 
-    // Pause the main scene temporarily while ChoiceScene is open:
+    // Pause the MainScene while ChoiceScene is up
     this.scene.scene.pause();
   }
 
   /**
-   * Accept a quest by its id and grant the reward to the player’s inventory.
-   * (The “reward” is a { iconKey, count }.)
+   * Accept a quest by its id and grant the reward to the player's inventory.
    */
   accept(questId) {
     const quest = this.quests.find(q => q.id === questId);
@@ -100,12 +96,12 @@ export class QuestManager {
     // 1) Give reward to playerInv (stack if possible, else add new stack)
     const inv = this.scene.playerInv;
 
-    // Find an existing stack (only if i !== null)
+    // Null‐safe find
     let stack = inv.find(i => i && i.iconKey === quest.reward);
     if (stack) {
       stack.count += quest.rewardCount;
     } else {
-      // If inventory has any null/empty slots, fill that; otherwise push new.
+      // If there’s an empty (null) slot in inv[], fill that first
       let placed = false;
       for (let i = 0; i < inv.length; i++) {
         if (!inv[i]) {
@@ -115,13 +111,14 @@ export class QuestManager {
         }
       }
       if (!placed) {
+        // Otherwise push a new stack onto the array
         inv.push({ iconKey: quest.reward, count: quest.rewardCount });
       }
     }
 
-    // 2) Auto‐open inventory so the player can see the new coins/potions
+    // 2) Auto‐open the inventory so the player sees the new reward
     if (typeof this.scene.openInventory === 'function') {
-      // Pass (playerInv, null) because there's no chest open right now
+      // Pass (playerInv, null) since no chest is open right now
       this.scene.openInventory(inv, null);
     }
   }
