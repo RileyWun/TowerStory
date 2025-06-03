@@ -174,18 +174,13 @@ export class Enemy extends Phaser.GameObjects.Sprite {
     }
     else if (this.state === 'attack') {
       // 4a) Compute iso‐space vector away from the player,
-      //     so we can retreat smoothly. To find iso‐vector:
       const pxIso = (player.x - this.scene.offsetX)/(this.scene.tileW/2) + (player.y - this.scene.offsetY)/(this.scene.tileH/2);
       const pyIso = ((player.y - this.scene.offsetY)/(this.scene.tileH/2) - (player.x - this.scene.offsetX)/(this.scene.tileW/2)) / 2;
-      // Actually, it’s easier to just do iso‐vector by these formulas:
       const isoDX = this.isoX - player.x / this.scene.tileW;
       const isoDY = this.isoY - player.y / this.scene.tileH;
-      // BUT since we know this.x/this.y are screen coords, a simpler way is:
-      //   Use screen dx/dy, then convert to iso: (-dy + dx)/tileW , (dx + dy)/tileH
       const screenDX = this.x - player.x;
       const screenDY = this.y - player.y;
       const length = Math.hypot(screenDX, screenDY) || 1;
-      // retreatDir in **iso space**:
       this.retreatDir.x = (screenDX/length + screenDY/length) / 2;
       this.retreatDir.y = (screenDY/length - screenDX/length) / 2;
 
@@ -216,10 +211,12 @@ export class Enemy extends Phaser.GameObjects.Sprite {
     }
   }
 
-  /**
-   * Called when the player’s Space‐attack hits this Enemy.
+  /*
+   * Called when the players Space‐attack hits this Enemy.
    */
   takeDamage(amount) {
+    const scene = this.scene;
+
     this.currentHP -= amount;
     if (this.currentHP < 0) this.currentHP = 0;
 
@@ -228,29 +225,43 @@ export class Enemy extends Phaser.GameObjects.Sprite {
     this._showHealthBar(true);
     this._updateHealthBar();
 
-    // flash red, then after 500ms revert to either idle or alert
-    this.setTint(0xff4444);
-    this.scene.time.delayedCall(100, () => {
+    // Flash red, then after 100 ms clear tint …
+    scene.time.delayedCall(100, () => {
+      // If this enemy was already destroyed, bail out:
+      if (!this || !this.body) {
+        return;
+      }
       this.clearTint();
-      this.scene.time.delayedCall(500, () => {
-        // if still < alertRange, stay alert; else hide the bar
-        const distToPlayer = Phaser.Math.Distance.Between(
-          this.x, this.y, this.scene.player.x, this.scene.player.y
-        );
-        if (distToPlayer < this.alertRange && this.currentHP > 0) {
-          this.state = 'alert';
-          this._showHealthBar(true);
-        } else if (this.currentHP > 0) {
-          this.state = 'idle';
-          this._showHealthBar(false);
+
+      // After another 500 ms, resume either idle or alert, or die if HP=0
+      scene.time.delayedCall(500, () => {
+        // If enemy no longer exists, stop.
+        if (!this || !this.body) {
+          return;
         }
+
+        // If HP has dropped to zero in the meantime, kill it:
         if (this.currentHP === 0) {
           this.die();
+          return;
+        }
+
+        // Otherwise, decide whether to stay alert or go back to idle:
+        const distToPlayer = Phaser.Math.Distance.Between(
+          this.x, this.y,
+          scene.player.x, scene.player.y
+        );
+        if (distToPlayer < this.alertRange) {
+          this.state = 'alert';
+          this._showHealthBar(true);
+        } else {
+          this.state = 'idle';
+          this._showHealthBar(false);
         }
       });
     });
   }
-
+  
   _updateHealthBar() {
     const pct = Phaser.Math.Clamp(this.currentHP / this.maxHP, 0, 1);
     this.barFg.width = 32 * pct;
