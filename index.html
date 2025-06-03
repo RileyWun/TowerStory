@@ -107,7 +107,6 @@
           // 3) Tiled objects + spawn point
           const objs       = map.getObjectLayer('Objects').objects;
           const spawnPoint = objs.find(o => o.name==='PlayerSpawn');
-          this.add.image(100, 100, 'coin').setScale(2);
           
           // 4) Inventory & chests
           this.playerInv = [
