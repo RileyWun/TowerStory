@@ -148,7 +148,8 @@ export class InventoryScene extends Phaser.Scene {
     if (this.weaponSprite) this.weaponSprite.destroy();
     if (this.armorSprite)  this.armorSprite.destroy();
 
-    const player = this.scene.player; // MainScene’s player
+    const main = this.scene.get('Main');
+    const player = main.player;
 
     // Draw weapon slot icon:
     if (player.equipment.weapon) {
@@ -227,7 +228,8 @@ export class InventoryScene extends Phaser.Scene {
 
   // Called when a weapon/armor icon is dropped onto its slot:
   equipItem(itemData, slotType, iconSprite) {
-    const player = this.scene.player;
+    const main   = this.scene.get('Main');
+    const player = main.player;
 
     // 1) If slot already occupied, first unequip old item:
     if (player.equipment[slotType]) {
