@@ -223,6 +223,16 @@
             this.openEquipment(this.playerInv, this.equipped);
             this.scene.pause();
           });
+
+          this.events.on('inventoryClosed', data => {
+  this.playerInv = data.playerInv;
+  if (data.chestInv !== null) {
+    // find whichever chest the player just interacted with 
+    // and update its .inventory = data.chestInv
+    // (you probably have a reference to that chest object when opening)
+  }
+  this.scene.resume();
+});
         }
 
         /**
