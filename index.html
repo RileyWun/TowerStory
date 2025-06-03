@@ -4,17 +4,17 @@
   <meta charset="UTF-8" />
   <title>TowerStory</title>
   <style>
-    html, body { 
-      height:100%; 
-      width:100%; 
-      margin:0; 
-      padding:0; 
-      background: url('assets/images/background.png') center/cover no-repeat; 
+    html, body {
+      height:100%;
+      width:100%;
+      margin:0;
+      padding:0;
+      background: url('assets/images/background.png') center/cover no-repeat;
     }
     body {
-      display: grid;
-      grid-template-rows: 80px auto 60px;
-      grid-template-columns: 200px auto 200px;
+      display:grid;
+      grid-template-rows:80px auto 60px;
+      grid-template-columns:200px auto 200px;
       grid-template-areas:
         "header header header"
         "sidebar-left main sidebar-right"
@@ -22,12 +22,12 @@
     }
     #header           { grid-area: header; }
     #sidebar-left     { grid-area: sidebar-left; }
-    #game-container   { 
-      grid-area: main; 
-      position: relative; 
-      width: 100%; 
-      height: 100%; 
-      overflow: hidden; 
+    #game-container   {
+      grid-area: main;
+      position: relative;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
     }
     #sidebar-right    { grid-area: sidebar-right; }
     #footer           { grid-area: footer; }
@@ -54,18 +54,16 @@
 
     window.addEventListener('load', () => {
       // ────────────────────────────────────────────────────────────────
-      // BootScene: immediately start Preload
       class BootScene extends Phaser.Scene {
         constructor(){ super('Boot'); }
         create(){ this.scene.start('Preload'); }
       }
 
-      // PreloadScene: load all assets
       class PreloadScene extends Phaser.Scene {
         constructor(){ super('Preload'); }
         preload(){
           this.load.tilemapTiledJSON('room', 'assets/maps/room.json');
-          this.load.spritesheet('tileset', 'assets/tiles/tileset.png',   { frameWidth:38, frameHeight:38 });
+          this.load.spritesheet('tileset', 'assets/tiles/tileset.png', { frameWidth:38, frameHeight:38 });
           this.load.spritesheet('player','assets/player/Chibi-character-template_skin0_part2_by_AxulArt.png', { frameWidth:32, frameHeight:32 });
           this.load.image('chest',   'assets/objects/chest.png');
           this.load.image('npc',     'assets/objects/npc.png');
@@ -73,32 +71,26 @@
           this.load.image('sword',   'assets/icons/sword.png');
           this.load.image('coin',    'assets/icons/coin.png');
           this.load.image('slime',   'assets/objects/slime.png');
-          // You may also load separate loot textures if you like:
-          // this.load.image('loot-coin','assets/icons/coin.png');
-          // this.load.image('loot-potion','assets/icons/potion.png');
         }
         create(){ this.scene.start('Main'); }
       }
 
       // ────────────────────────────────────────────────────────────────
-      // MainScene: draw the map, place objects, set up managers, etc.
       class MainScene extends Phaser.Scene {
         constructor(){ super('Main'); }
 
         create(){
-          // 1) Create the tilemap and compute offsets for isometric rendering
+          // 1) Tilemap + isometric offsets
           const map = this.make.tilemap({ key: 'room' });
           map.addTilesetImage('tileset', 'tileset', map.tileWidth, map.tileHeight);
           this.tileW = map.tileWidth;
           this.tileH = map.tileHeight;
           this.mapW  = map.width;
           this.mapH  = map.height;
-
-          // center the entire map in the viewport
           this.offsetX = this.scale.width  / 2;
           this.offsetY = (this.scale.height - (this.mapW + this.mapH)*(this.tileH/2)) / 2 + this.tileH/2;
 
-          // 2) Draw the floor layer
+          // 2) Draw floor layer
           this.floorData = map.getLayer('Floor').data.map(row => row.map(tile => tile.index > 0));
           this.collisionData = map.getLayer('Collision').data.map(row => row.map(tile => tile.index > 0));
           map.getLayer('Floor').data.forEach((row, y) => {
@@ -112,105 +104,83 @@
             });
           });
 
-          // 3) Read all Tiled objects (PlayerSpawn, Chest, NPC, MobSpawn, etc.)
+          // 3) Tiled objects
           const objs       = map.getObjectLayer('Objects').objects;
           const spawnPoint = objs.find(o => o.name === 'PlayerSpawn');
 
-          // 4) Prepare player inventory and chest list
+          // 4) Inventory & chests
           this.playerInv = [
-            { iconKey: 'potion', count: 3 },
-            { iconKey: 'sword',  count: 1 }
+            { iconKey:'potion', count:3 },
+            { iconKey:'sword',  count:1 }
           ];
           this.chests   = [];
 
-          // 5) Create empty groups for enemies and loot
+          // 5) Groups for enemies and loot
           this.enemies   = this.add.group();
           this.lootGroup = this.physics.add.group();
 
-          // 6) Loop through every object in Tiled
+          // 6) Iterate objects
           objs.forEach(o => {
-            // convert Tiled (o.x, o.y) to isometric tile coords
             const ix = o.x / this.tileW;
             const iy = o.y / this.tileH;
             const sx = (ix - iy)*(this.tileW/2) + this.offsetX;
             const sy = (ix + iy)*(this.tileH/2) + this.offsetY;
 
-            // ─── (A) CHESTS ───────────────────────────────────────────
             if (o.type === 'Chest') {
               const chest = this.add.image(sx, sy, 'chest')
-                                  .setOrigin(0.5, 1)
+                                  .setOrigin(0.5,1)
                                   .setDepth(sy)
                                   .setInteractive();
               chest.inventory = [];
-              chest.on('pointerdown', () => {
-                this.openInventory(this.playerInv, chest.inventory);
-              });
+              chest.on('pointerdown', () => this.openInventory(this.playerInv, chest.inventory));
               this.chests.push(chest);
             }
-
-            // ─── (B) NPCs ─────────────────────────────────────────────
             else if (o.type === 'NPC') {
-              // NPCs will be handled later by NPCManager
+              // Handled by NPCManager later
             }
-
-            // ─── (C) MOB SPAWN (IMMEDIATE ONCE) ───────────────────────
             else if (o.type === 'MobSpawn') {
-              const areaLeft   = o.x;
-              const areaTop    = o.y;
-              const areaWidth  = o.width  || this.tileW;
-              const areaHeight = o.height || this.tileH;
-
-              const props      = (o.properties || []).reduce((acc, p) => {
-                acc[p.name] = p.value;
-                return acc;
-              }, {});
+              const props = (o.properties||[]).reduce((acc,p)=>{ acc[p.name]=p.value; return acc; }, {});
               const mobType   = props.mobType   || 'slime';
               const spawnRate = props.spawnRate || 0.0;
-
               if (spawnRate === 0) {
-                // drop exactly one mob at a random point within that rectangle
-                const randX = Phaser.Math.FloatBetween(areaLeft, areaLeft + areaWidth);
-                const randY = Phaser.Math.FloatBetween(areaTop,  areaTop  + areaHeight);
-
+                const randX = Phaser.Math.FloatBetween(o.x, o.x + (o.width||this.tileW));
+                const randY = Phaser.Math.FloatBetween(o.y, o.y + (o.height||this.tileH));
                 const isoX = randX / this.tileW;
                 const isoY = randY / this.tileH;
-                const randomLevel = Phaser.Math.Between(1, 5);
+                const randomLevel = Phaser.Math.Between(1,5);
                 const mob = new Enemy(this, isoX, isoY, mobType, randomLevel);
                 this.enemies.add(mob);
               }
             }
           });
 
-          // 7) Now that all Tiled objects are handled, create the player:
-                this.player = this.physics.add.sprite(0, 0, 'player')
-                    .setOrigin(0.5, 1);
-                this.playerIsoX = spawnPoint.x / this.tileW;
-                this.playerIsoY = spawnPoint.y / this.tileH;
-                const px = (this.playerIsoX - this.playerIsoY)*(this.tileW/2) + this.offsetX;
-                const py = (this.playerIsoX + this.playerIsoY)*(this.tileH/2) + this.offsetY;
-                this.player.setPosition(px, py).setDepth(py);
+          // 7) Create player as a physics sprite
+          this.player = this.physics.add.sprite(0, 0, 'player').setOrigin(0.5,1);
+          this.playerIsoX = spawnPoint.x / this.tileW;
+          this.playerIsoY = spawnPoint.y / this.tileH;
+          const px = (this.playerIsoX - this.playerIsoY)*(this.tileW/2) + this.offsetX;
+          const py = (this.playerIsoX + this.playerIsoY)*(this.tileH/2) + this.offsetY;
+          this.player.setPosition(px, py).setDepth(py);
+          this.player.body.setAllowGravity(false);
+          this.player.body.setSize(16, 16);
 
-          // 8) Set up keyboard movement and camera
+          // 8) Keyboard & camera
           this.keys = this.input.keyboard.addKeys('W,A,S,D');
-
-          // ─── REGISTER SPACE FOR MELEE ATTACK ──────────────────────────
           this.keys.SPACE = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
-          this.keys.SPACE.on('down', () => {
-            this.playerAttack();
-          });
+          this.keys.SPACE.on('down', () => this.playerAttack());
 
-          this.cameras.main.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
+          this.cameras.main.setBounds(0,0, map.widthInPixels, map.heightInPixels);
           this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
 
-          // ─── When player overlaps/“touches” any loot icon, pick it up ───
+          // 9) Overlap for loot pickup
           this.physics.add.overlap(
             this.player,
             this.lootGroup,
             (playerSprite, lootSprite) => {
-              if (lootSprite.collected) return; // already picked up
+              if (lootSprite.collected) return;
               lootSprite.collected = true;
 
-              // 1) Add to player inventory: either stack or push new
+              // Add to inventory
               const inv = this.playerInv;
               const existing = inv.find(i => i.iconKey === lootSprite.itemKey);
               if (existing) {
@@ -219,7 +189,7 @@
                 inv.push({ iconKey: lootSprite.itemKey, count: lootSprite.quantity });
               }
 
-              // 2) “Pop” the icon visually, then destroy
+              // Pop & destroy
               this.tweens.add({
                 targets: lootSprite,
                 scaleX: 1.5,
@@ -229,14 +199,14 @@
                 onComplete: () => lootSprite.destroy()
               });
 
-              // 3) If inventory is open, refresh immediately
+              // Refresh inventory UI if open
               if (this.scene.isActive('InventoryScene')) {
                 this.events.emit('refreshInventory', this.playerInv);
               }
             }
           );
 
-          // ─── (9) MANAGERS ──────────────────────────────────────────
+          // 10) Managers
           this.npcManager   = new NPCManager(this);
           this.npcManager.createFromObjects(objs);
 
@@ -244,7 +214,7 @@
           this.dialogueTree = new DialogueTreeManager(this);
           this.tradeManager = new TradeManager(this);
 
-          // (9a) Load each quest dialog tree first
+          // (10a) Load quest dialog trees
           this.questManager.quests.forEach(quest => {
             if (!quest.dialogueFile) return;
             import(`./assets/js/dialogues/${quest.dialogueFile}`)
@@ -255,7 +225,7 @@
               .catch(err => console.warn(`Failed to load quest tree for ${quest.id}`, err));
           });
 
-          // (9b) Load each NPC’s “main” dialogue tree
+          // (10b) Load NPC main dialog trees
           this.npcManager.npcs.forEach(npc => {
             import(`./assets/js/dialogues/${npc.npcId}-tree.js`)
               .then(mod => {
@@ -265,12 +235,12 @@
               .catch(err => console.warn(`No dialogue module for ${npc.npcId}`, err));
           });
 
-          // 10) Enable “F” to talk to NPC when close
+          // 11) Conversations (F key)
           this.npcManager.enableConversations('F', npc =>
             this.dialogueTree.startDialogue(npc.npcId)
           );
 
-          // 11) Inventory & Chest hotkeys
+          // 12) Inventory & chest hotkeys
           this.events.on('inventoryClosed', data => {
             this.playerInv = data.playerInv;
             this.scene.resume();
@@ -284,7 +254,7 @@
               }
             });
           });
-        } // ← End of MainScene.create()
+        } // ← end of create()
 
         createPlayerAnims(){
           [
@@ -321,22 +291,22 @@
         }
 
         update(time, delta){
-          const dt = delta / 1000, spd = 3;
+          const dt = delta/1000, spd = 3;
           let moved = false, dir = this.lastDir || 'down';
           let nx = this.playerIsoX, ny = this.playerIsoY;
           const { W, A, S, D } = this.keys;
 
           if (W.isDown) {
-            ny -= spd * dt; dir = 'up';    moved = true; this.player.play('walk-up', true);
+            ny -= spd*dt; dir = 'up';    moved = true; this.player.play('walk-up', true);
           }
           else if (S.isDown) {
-            ny += spd * dt; dir = 'down';  moved = true; this.player.play('walk-down', true);
+            ny += spd*dt; dir = 'down';  moved = true; this.player.play('walk-down', true);
           }
           if (A.isDown) {
-            nx -= spd * dt; dir = 'left';  moved = true; this.player.play('walk-left', true);
+            nx -= spd*dt; dir = 'left';  moved = true; this.player.play('walk-left', true);
           }
           else if (D.isDown) {
-            nx += spd * dt; dir = 'right'; moved = true; this.player.play('walk-right', true);
+            nx += spd*dt; dir = 'right'; moved = true; this.player.play('walk-right', true);
           }
 
           const tx = Math.floor(nx), ty = Math.floor(ny);
@@ -359,19 +329,16 @@
           const sy = (this.playerIsoX + this.playerIsoY)*(this.tileH/2) + this.offsetY;
           this.player.setPosition(sx, sy).setDepth(sy);
 
-          // ─── Update all enemies every frame ────────────────────────
+          // Update each enemy:
           this.enemies.getChildren().forEach(enemy => {
             if (enemy && enemy.preUpdate) {
               enemy.preUpdate(time, delta);
             }
           });
-        } // ← End of update()
+        }
 
-        // ─── PLAYER MELEE ATTACK (SPACE) ──────────────────────────────
-        playerAttack() {
-          const px = this.player.x;
-          const py = this.player.y;
-
+        playerAttack(){
+          const px = this.player.x, py = this.player.y;
           this.enemies.getChildren().forEach(enemy => {
             if (!enemy || !enemy.active) return;
             const dist = Phaser.Math.Distance.Between(px, py, enemy.x, enemy.y);
@@ -383,27 +350,26 @@
 
         /**
          * Create one or more loot-icons at (screenX, screenY).
-         * @param {number} x      – screen-space X
-         * @param {number} y      – screen-space Y
-         * @param {string} key    – texture key for the loot (e.g. 'coin' or 'potion')
-         * @param {number} amount – how many items to drop
+         * @param {number} x       – screen-space X
+         * @param {number} y       – screen-space Y
+         * @param {string} key     – texture key (e.g. 'coin' or 'potion')
+         * @param {number} amount  – how many items to drop
          */
         spawnLoot(x, y, key, amount = 1) {
           for (let i = 0; i < amount; i++) {
             const dx = Phaser.Math.Between(-8, 8);
             const dy = Phaser.Math.Between(-8, 8);
 
-            const loot = this.add
-              .image(x + dx, y + dy, key)
+            const loot = this.lootGroup.create(x + dx, y + dy, key)
               .setOrigin(0.5, 0.5)
               .setDepth(y + dy);
 
+            loot.body.setAllowGravity(false);
             loot.setInteractive();
-            loot.itemKey  = key;
-            loot.quantity = 1;
+            loot.itemKey   = key;
+            loot.quantity  = 1;
             loot.collected = false;
 
-            // small bounce tween
             this.tweens.add({
               targets: loot,
               y: (y + dy) - 8,
@@ -411,33 +377,11 @@
               duration: 200,
               yoyo: true
             });
-
-            this.lootGroup = this.physics.add.group();
-            const loot = this.lootGroup.create(x + dx, y + dy, key)
-  .setOrigin(0.5, 0.5)
-  .setDepth(y + dy);
-
-// by default, physics.add.group().create() gives it a body
-loot.body.setAllowGravity(false);
-loot.setInteractive();
-loot.itemKey   = key;
-loot.quantity  = 1;
-loot.collected = false;
-
-// small bounce between
-this.tweens.add({
-  targets: loot,
-  y: (y + dy) - 8,
-  ease: 'Power1',
-  duration: 200,
-  yoyo: true
-});
           }
         }
-      } // End of MainScene
+      }
 
       // ────────────────────────────────────────────────────────────────
-      // DialogueScene (shows a block of text, closes on ESC or click)
       class DialogueScene extends Phaser.Scene {
         constructor(){ super('DialogueScene'); }
         init(data){ this.lines = data.lines || []; }
@@ -460,8 +404,6 @@ this.tweens.add({
         }
       }
 
-      // ────────────────────────────────────────────────────────────────
-      // ChoiceScene (question + clickable text options)
       class ChoiceScene extends Phaser.Scene {
         constructor(){ super('ChoiceScene'); }
         init(data){
@@ -489,7 +431,6 @@ this.tweens.add({
       }
 
       // ────────────────────────────────────────────────────────────────
-      // Game configuration and launch
       const config = {
         type: Phaser.AUTO,
         parent: 'game-container',
