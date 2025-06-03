@@ -4,21 +4,33 @@
   <meta charset="UTF-8" />
   <title>TowerStory</title>
   <style>
-    html, body { height:100%; width:100%; margin:0; padding:0; background: url('assets/images/background.png') center/cover no-repeat; }
+    html, body { 
+      height:100%; 
+      width:100%; 
+      margin:0; 
+      padding:0; 
+      background: url('assets/images/background.png') center/cover no-repeat; 
+    }
     body {
-      display:grid;
-      grid-template-rows:80px auto 60px;
-      grid-template-columns:200px auto 200px;
+      display: grid;
+      grid-template-rows: 80px auto 60px;
+      grid-template-columns: 200px auto 200px;
       grid-template-areas:
         "header header header"
         "sidebar-left main sidebar-right"
         "footer footer footer";
     }
-    #header { grid-area: header; }
-    #sidebar-left { grid-area: sidebar-left; }
-    #game-container { grid-area: main; position: relative; width: 100%; height: 100%; overflow:hidden; }
-    #sidebar-right { grid-area: sidebar-right; }
-    #footer { grid-area: footer; }
+    #header           { grid-area: header; }
+    #sidebar-left     { grid-area: sidebar-left; }
+    #game-container   { 
+      grid-area: main; 
+      position: relative; 
+      width: 100%; 
+      height: 100%; 
+      overflow: hidden; 
+    }
+    #sidebar-right    { grid-area: sidebar-right; }
+    #footer           { grid-area: footer; }
     #game-container canvas { display: block; margin: auto; }
   </style>
 </head>
@@ -53,14 +65,17 @@
         constructor(){ super('Preload'); }
         preload(){
           this.load.tilemapTiledJSON('room', 'assets/maps/room.json');
-          this.load.spritesheet('tileset', 'assets/tiles/tileset.png', { frameWidth:38, frameHeight:38 });
-          this.load.spritesheet('player', 'assets/player/Chibi-character-template_skin0_part2_by_AxulArt.png', { frameWidth:32, frameHeight:32 });
-          this.load.image('chest','assets/objects/chest.png');
-          this.load.image('npc','assets/objects/npc.png');
-          this.load.image('potion','assets/icons/potion.png');
-          this.load.image('sword','assets/icons/sword.png');
-          this.load.image('coin','assets/icons/coin.png');
-          this.load.image('slime','assets/objects/slime.png');
+          this.load.spritesheet('tileset', 'assets/tiles/tileset.png',   { frameWidth:38, frameHeight:38 });
+          this.load.spritesheet('player','assets/player/Chibi-character-template_skin0_part2_by_AxulArt.png', { frameWidth:32, frameHeight:32 });
+          this.load.image('chest',   'assets/objects/chest.png');
+          this.load.image('npc',     'assets/objects/npc.png');
+          this.load.image('potion',  'assets/icons/potion.png');
+          this.load.image('sword',   'assets/icons/sword.png');
+          this.load.image('coin',    'assets/icons/coin.png');
+          this.load.image('slime',   'assets/objects/slime.png');
+          // You may also load separate loot textures if you like:
+          // this.load.image('loot-coin','assets/icons/coin.png');
+          // this.load.image('loot-potion','assets/icons/potion.png');
         }
         create(){ this.scene.start('Main'); }
       }
@@ -98,7 +113,7 @@
           });
 
           // 3) Read all Tiled objects (PlayerSpawn, Chest, NPC, MobSpawn, etc.)
-          const objs = map.getObjectLayer('Objects').objects;
+          const objs       = map.getObjectLayer('Objects').objects;
           const spawnPoint = objs.find(o => o.name === 'PlayerSpawn');
 
           // 4) Prepare player inventory and chest list
@@ -106,10 +121,10 @@
             { iconKey: 'potion', count: 3 },
             { iconKey: 'sword',  count: 1 }
           ];
-          this.chests = [];
+          this.chests   = [];
 
-          // 5) Create an empty group for enemies
-          this.enemies = this.add.group();
+          // 5) Create empty groups for enemies and loot
+          this.enemies   = this.add.group();
           this.lootGroup = this.add.group();
 
           // 6) Loop through every object in Tiled
@@ -145,7 +160,7 @@
               const areaWidth  = o.width  || this.tileW;
               const areaHeight = o.height || this.tileH;
 
-              const props = (o.properties || []).reduce((acc, p) => {
+              const props      = (o.properties || []).reduce((acc, p) => {
                 acc[p.name] = p.value;
                 return acc;
               }, {});
@@ -153,12 +168,12 @@
               const spawnRate = props.spawnRate || 0.0;
 
               if (spawnRate === 0) {
+                // drop exactly one mob at a random point within that rectangle
                 const randX = Phaser.Math.FloatBetween(areaLeft, areaLeft + areaWidth);
                 const randY = Phaser.Math.FloatBetween(areaTop,  areaTop  + areaHeight);
 
                 const isoX = randX / this.tileW;
                 const isoY = randY / this.tileH;
-
                 const randomLevel = Phaser.Math.Between(1, 5);
                 const mob = new Enemy(this, isoX, isoY, mobType, randomLevel);
                 this.enemies.add(mob);
@@ -187,42 +202,40 @@
           this.cameras.main.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
           this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
 
-           // ─── When player overlaps/“touches” any loot icon, pick it up ───
- this.physics.add.overlap(
-   this.player,
-   this.lootGroup,
-   (playerSprite, lootSprite) => {
-     if (lootSprite.collected) return;  // ignore if already picked
-     lootSprite.collected = true;
+          // ─── When player overlaps/“touches” any loot icon, pick it up ───
+          this.physics.add.overlap(
+            this.player,
+            this.lootGroup,
+            (playerSprite, lootSprite) => {
+              if (lootSprite.collected) return; // already picked up
+              lootSprite.collected = true;
 
-     // 1) Add to player inventory: either stack if the same icon, or push new
-     const inv = this.playerInv;
-     const existing = inv.find(i => i.iconKey === lootSprite.itemKey);
-     if (existing) {
-       existing.count += lootSprite.quantity;
-     } else {
-       inv.push({
-         iconKey: lootSprite.itemKey,
-         count: lootSprite.quantity
-       });
-     }
+              // 1) Add to player inventory: either stack or push new
+              const inv = this.playerInv;
+              const existing = inv.find(i => i.iconKey === lootSprite.itemKey);
+              if (existing) {
+                existing.count += lootSprite.quantity;
+              } else {
+                inv.push({ iconKey: lootSprite.itemKey, count: lootSprite.quantity });
+              }
 
-     // 2) “pop” the icon with a quick scale between, then destroy
-     this.tweens.add({
-       targets: lootSprite,
-       scaleX: 1.5,
-       scaleY: 1.5,
-       alpha: 0,
-       duration: 200,
-       onComplete: () => lootSprite.destroy()
-     });
+              // 2) “Pop” the icon visually, then destroy
+              this.tweens.add({
+                targets: lootSprite,
+                scaleX: 1.5,
+                scaleY: 1.5,
+                alpha: 0,
+                duration: 200,
+                onComplete: () => lootSprite.destroy()
+              });
 
-     // 3) If inventory is open, refresh it immediately
-     if (this.scene.isActive('InventoryScene')) {
-       this.events.emit('refreshInventory', this.playerInv);
-     }
-   }
- );
+              // 3) If inventory is open, refresh immediately
+              if (this.scene.isActive('InventoryScene')) {
+                this.events.emit('refreshInventory', this.playerInv);
+              }
+            }
+          );
+
           // ─── (9) MANAGERS ──────────────────────────────────────────
           this.npcManager   = new NPCManager(this);
           this.npcManager.createFromObjects(objs);
@@ -271,54 +284,18 @@
               }
             });
           });
-  /**
-   * Create one or more loot‐icons at (screenX, screenY).
-   * @param {number} x   – screen‐space X
-   * @param {number} y   – screen‐space Y
-   * @param {string} key – texture key for the loot (e.g. 'loot-coin')
-   * @param {number} amount – how many of this item to drop
-   */
-  spawnLoot(x, y, key, amount = 1) {
-    // We’ll drop `amount` separate icons, scattered slightly:
-    for (let i = 0; i < amount; i++) {
-      const dx = Phaser.Math.Between(-8, 8);
-      const dy = Phaser.Math.Between(-8, 8);
-
-      const loot = this.add
-        .image(x + dx, y + dy, key)
-        .setOrigin(0.5, 0.5)
-        .setDepth(y + dy); // so it appears “on the ground” in iso
-
-      loot.setInteractive();
-      loot.itemKey  = key;      // e.g. 'loot-coin'
-      loot.quantity = 1;        // each icon represents 1 coin (or 1 potion)
-      loot.collected = false;
-
-      // Give it a small bounce‐in tween so it “pops” from the ground:
-      this.tweens.add({
-        targets: loot,
-        y: (y + dy) - 8,
-        ease: 'Power1',
-        duration: 200,
-        yoyo: true
-      });
-
-      // Add to our lootGroup so we can manage collection
-      this.lootGroup.add(loot);
-    }
-  }       
-        } // End of MainScene.create()
+        } // ← End of MainScene.create()
 
         createPlayerAnims(){
           [
-            ['down',      0,  3],
-            ['left',     12, 15],
-            ['right',    24, 27],
-            ['up',       36, 39],
-            ['down-left',48, 51],
+            ['down',       0,  3],
+            ['left',      12, 15],
+            ['right',     24, 27],
+            ['up',        36, 39],
+            ['down-left', 48, 51],
             ['down-right',60, 63],
             ['up-left',   72, 75],
-            ['up-right',  84, 87],
+            ['up-right',  84, 87]
           ].forEach(([k, s, e]) => {
             this.anims.create({
               key: `walk-${k}`,
@@ -350,28 +327,16 @@
           const { W, A, S, D } = this.keys;
 
           if (W.isDown) {
-            ny -= spd * dt;
-            dir = 'up';
-            moved = true;
-            this.player.play('walk-up', true);
+            ny -= spd * dt; dir = 'up';    moved = true; this.player.play('walk-up', true);
           }
           else if (S.isDown) {
-            ny += spd * dt;
-            dir = 'down';
-            moved = true;
-            this.player.play('walk-down', true);
+            ny += spd * dt; dir = 'down';  moved = true; this.player.play('walk-down', true);
           }
           if (A.isDown) {
-            nx -= spd * dt;
-            dir = 'left';
-            moved = true;
-            this.player.play('walk-left', true);
+            nx -= spd * dt; dir = 'left';  moved = true; this.player.play('walk-left', true);
           }
           else if (D.isDown) {
-            nx += spd * dt;
-            dir = 'right';
-            moved = true;
-            this.player.play('walk-right', true);
+            nx += spd * dt; dir = 'right'; moved = true; this.player.play('walk-right', true);
           }
 
           const tx = Math.floor(nx), ty = Math.floor(ny);
@@ -400,26 +365,57 @@
               enemy.preUpdate(time, delta);
             }
           });
-        } // End of update()
+        } // ← End of update()
 
         // ─── PLAYER MELEE ATTACK (SPACE) ──────────────────────────────
         playerAttack() {
-          // Screen‐space position of player:
           const px = this.player.x;
           const py = this.player.y;
 
-          // Check every enemy in the group:
           this.enemies.getChildren().forEach(enemy => {
             if (!enemy || !enemy.active) return;
-            // distance in screen pixels:
             const dist = Phaser.Math.Distance.Between(px, py, enemy.x, enemy.y);
-            // hit if within enemy.hitRadius + a small “reach” (16px)
             if (dist < enemy.hitRadius + 16) {
               enemy.takeDamage(1);
             }
           });
         }
-      } // End of MainScene
+
+        /**
+         * Create one or more loot-icons at (screenX, screenY).
+         * @param {number} x      – screen-space X
+         * @param {number} y      – screen-space Y
+         * @param {string} key    – texture key for the loot (e.g. 'coin' or 'potion')
+         * @param {number} amount – how many items to drop
+         */
+        spawnLoot(x, y, key, amount = 1) {
+          for (let i = 0; i < amount; i++) {
+            const dx = Phaser.Math.Between(-8, 8);
+            const dy = Phaser.Math.Between(-8, 8);
+
+            const loot = this.add
+              .image(x + dx, y + dy, key)
+              .setOrigin(0.5, 0.5)
+              .setDepth(y + dy);
+
+            loot.setInteractive();
+            loot.itemKey  = key;
+            loot.quantity = 1;
+            loot.collected = false;
+
+            // small bounce tween
+            this.tweens.add({
+              targets: loot,
+              y: (y + dy) - 8,
+              ease: 'Power1',
+              duration: 200,
+              yoyo: true
+            });
+
+            this.lootGroup.add(loot);
+          }
+        }
+      } // ← End of MainScene
 
       // ────────────────────────────────────────────────────────────────
       // DialogueScene (shows a block of text, closes on ESC or click)
@@ -474,7 +470,7 @@
       }
 
       // ────────────────────────────────────────────────────────────────
-      // The configuration and game instantiation
+      // Game configuration and launch
       const config = {
         type: Phaser.AUTO,
         parent: 'game-container',
