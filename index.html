@@ -22,12 +22,12 @@
     }
     #header { grid-area: header; }
     #sidebar-left { grid-area: sidebar-left; }
-    #game-container { 
-      grid-area: main; 
-      position: relative; 
-      width: 100%; 
-      height: 100%; 
-      overflow: hidden; 
+    #game-container {
+      grid-area: main;
+      position: relative;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
     }
     #sidebar-right { grid-area: sidebar-right; }
     #footer { grid-area: footer; }
@@ -135,7 +135,6 @@
               });
               this.chests.push(chest);
             }
-            // NPCs and other objects get handled by NPCManager below
           });
 
           // Player
@@ -252,6 +251,32 @@
           });
         }
 
+        // -----------------------------
+        // New spawnLoot method:
+        // -----------------------------
+        spawnLoot(x, y, iconKey, amount) {
+          // Convert iso coords to screen:
+          const sx = (x - y) * (this.tileW / 2) + this.offsetX;
+          const sy = (x + y) * (this.tileH / 2) + this.offsetY;
+          for (let i = 0; i < amount; i++) {
+            const drop = this.add.image(sx, sy, iconKey)
+              .setScale(1)
+              .setDepth(sy + 1)
+              .setInteractive();
+            // When player overlaps or clicks, pick up loot:
+            drop.on('pointerdown', () => {
+              // add to inventory:
+              let stack = this.playerInv.find(item => item.iconKey === iconKey);
+              if (stack) {
+                stack.count++;
+              } else {
+                this.playerInv.push({ iconKey, count: 1 });
+              }
+              drop.destroy();
+            });
+          }
+        }
+
         update(time, delta) {
           // Player movement
           const dt = delta / 1000,
@@ -334,7 +359,11 @@
             .fillStyle(0x000000, 0.7)
             .fillRect(boxX, boxY, boxW, boxH);
 
-          const textStyle = { fontSize: '18px', fill: '#fff', wordWrap: { width: boxW - pad * 2 } };
+          const textStyle = {
+            fontSize: '18px',
+            fill: '#fff',
+            wordWrap: { width: boxW - pad * 2 }
+          };
           this.lines.forEach((line, i) => {
             this.add.text(boxX + pad, boxY + pad + i * 24, line, textStyle);
           });
@@ -369,7 +398,11 @@
             .fillStyle(0x000000, 0.7)
             .fillRect(boxX, boxY, boxW, boxH);
 
-          const textStyle = { fontSize: '18px', fill: '#fff', wordWrap: { width: boxW - pad * 2 } };
+          const textStyle = {
+            fontSize: '18px',
+            fill: '#fff',
+            wordWrap: { width: boxW - pad * 2 }
+          };
           this.add.text(boxX + pad, boxY + pad, this.question, textStyle);
 
           this.options.forEach((opt, idx) => {
@@ -406,7 +439,11 @@
             .fillStyle(0x000000, 0.8)
             .fillRect(boxX, boxY, boxW, boxH);
 
-          const textStyle = { fontSize: '18px', fill: '#fff', wordWrap: { width: boxW - pad * 2 } };
+          const textStyle = {
+            fontSize: '18px',
+            fill: '#fff',
+            wordWrap: { width: boxW - pad * 2 }
+          };
           this.add.text(boxX + pad, boxY + pad, `Trading with ${this.npcId}`, textStyle);
 
           this.input.keyboard.once('keydown-ESC', () => {
