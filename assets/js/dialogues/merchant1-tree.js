@@ -1,33 +1,32 @@
-// assets/js/dialogues/merchant1-tree.js
-
 export default {
   start: 'greeting',
   nodes: {
     greeting: {
       type: 'choice',
-      question: 'Hello traveler! What can I do for you?',
+      question: 'I’m running low on potions—could you bring me 5 healing herbs?',
       options: [
         {
-          text: 'Do you have a quest for me?',
-          action: scene => {
-            console.log('Merchant choice “quest” clicked');
-            scene.questManager.startQuest('merchant1');  // must match exactly
+          text: 'Absolutely, I’ll get them for you.',
+          action: function() {
+            console.log('merchant1Quest “Yes” clicked');
+            // Again, `this` is the Scene:
+            this.questManager.accept('merchant1Quest');
           },
-          next: null
+          next: 'questAccepted'
         },
         {
-          text: 'Let me see your wares.',
-          action: scene => {
-            scene.scene.launch('TradeScene', { npcId: 'merchant1' });
-            scene.scene.pause();
-          },
-          next: 'close'
+          text: 'Sorry, I’m busy right now.',
+          next: 'farewell'
         }
       ]
     },
-    close: {
+    questAccepted: {
       type: 'text',
-      lines: ['Safe travels!']
+      lines: [ 'Thank you! I’ll look forward to seeing you again.' ]
+    },
+    farewell: {
+      type: 'text',
+      lines: [ 'Safe journeys, then.' ]
     }
   }
 };
