@@ -4,7 +4,7 @@ export default {
   nodes: {
     questPrompt: {
       type: 'choice',
-      question: 'Could you fetch me 5 healing herbs for a potion?',
+      question: 'I’m running low on potions—could you bring me 5 healing herbs?',
       options: [
         {
           text: 'Sure, I’ll get them.',
