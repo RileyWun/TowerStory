@@ -5,12 +5,12 @@ export default {
   nodes: {
     greeting: {
       type: 'text',
-      lines: ['Hello traveler! Will you help me?'],
+      lines: ['Hello traveler!'],
       next: 'offerQuest'
     },
     offerQuest: {
       type: 'choice',
-      question: 'Will you accept this quest?',
+      question: 'Will you help me?',
       options: [
         {
           text: 'Yes, of course!',
