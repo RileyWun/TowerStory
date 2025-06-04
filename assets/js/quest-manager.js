@@ -7,11 +7,6 @@ export class QuestManager {
     this.loadQuests();
   }
 
-  /**
-   * Populate the list of all available quests.
-   * Each quest may specify a `dialogueFile` (the filename under /assets/js/dialogues/)
-   * so that we can register its tree dynamically.
-   */
   loadQuests() {
     this.quests = [
       {
@@ -28,52 +23,51 @@ export class QuestManager {
         id: 'merchant1Quest',
         npcId: 'merchant1',
         prompt: 'I’m running low on potions—could you bring me 5 healing herbs?',
-        acceptText: 'Sure, I’ll get them.',
+        acceptText: 'Absolutely, I’ll get them for you.',
         declineText: 'Sorry, I’m busy right now.',
         reward: 'potion',
         rewardCount: 1,
         dialogueFile: 'merchant1-quest-tree.js'
       }
-      // ← Add more quests here as needed.
+      // …more quests…
     ];
   }
 
-  /**
-   * Return the quest object associated with a given npcId, or undefined if none.
-   */
   getQuestFor(npcId) {
     return this.quests.find(q => q.npcId === npcId);
   }
 
   /**
-   * Called when the player initiates “Do you have a quest?” with a merchant/NPC.
-   * Finds the quest for that NPC and (if the dialogue tree was registered) starts it.
+   * If you pass a questId, fall back to finding that quest by its ID.
+   * Otherwise look it up by npcId as before.
    */
-  startQuest(npcId) {
-  const quest = this.getQuestFor(npcId); // now getQuestFor('merchant1') finds the correct object
+  startQuest(key) {
+    console.log(`QuestManager.startQuest(${key}) called`);
+
+    // First try looking up by npcId
+    let quest = this.quests.find(q => q.npcId === key);
+
+    // If none found, try by quest.id directly
     if (!quest) {
-      console.warn(`QuestManager.startQuest: no quest found for ${npcId}`);
-      return;
+      quest = this.quests.find(q => q.id === key);
     }
 
-    // We assume that elsewhere (in MainScene, on startup), you already did:
-    // import(`./assets/js/dialogues/${quest.dialogueFile}`)
-    //   .then(mod => dialogueTree.registerTree(quest.id, mod.default))
-    // So here we simply fire off that quest‐tree by its id:
+    if (!quest) {
+      console.warn(`QuestManager.startQuest: no quest found for "${key}"`);
+      return;
+    }
+    console.log(`QuestManager.startQuest: found quest "${quest.id}"`);
+
+    // Launch its dialogue tree by quest.id (must have been registered earlier)
     this.scene.dialogueTree.startDialogue(quest.id);
   }
 
-  /**
-   * Accept a quest by its questId (e.g. “quest2” or “merchant1Quest”), 
-   * give the reward to the player’s inventory, and re-open inventory so they see it.
-   */
   accept(questId) {
     const quest = this.quests.find(q => q.id === questId);
     if (!quest) return;
 
     console.log(`Quest accepted: ${questId}`);
 
-    // Give the reward to playerInv
     const inv = this.scene.playerInv;
     let stack = inv.find(i => i.iconKey === quest.reward);
     if (stack) {
@@ -82,17 +76,12 @@ export class QuestManager {
       inv.push({ iconKey: quest.reward, count: quest.rewardCount });
     }
 
-    // Auto-open inventory so the player sees the new item(s):
     if (this.scene.openInventory) {
       this.scene.openInventory(inv, null);
     }
   }
 
-  /**
-   * (Optional) Decline a quest. Right now this simply logs, but you can expand it.
-   */
   decline(questId) {
     console.log(`Quest declined: ${questId}`);
-    // e.g. you could give the NPC a “maybe next time” dialogue.
   }
 }
