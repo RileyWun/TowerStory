@@ -43,10 +43,9 @@
     import { QuestManager }         from './assets/js/quest-manager.js';
     import { DialogueTreeManager }  from './assets/js/dialogue-tree-manager.js';
     import { TradeManager }         from './assets/js/trade-manager.js';
-
-    // The Inventory and Equipment scenes now live in separate files:
     import { InventoryScene }       from './assets/js/inventory-scene.js';
     import { EquipmentScene }       from './assets/js/equipment-scene.js';
+    import { Slime }                from './assets/js/enemy.js';
 
     window.addEventListener('load', () => {
 
@@ -151,6 +150,22 @@
           this.cameras.main.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
           this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
 
+ // —————————————————————————————
+         // 3) SPAWN SLIME (mob) INTO THE SCENE
+         // —————————————————————————————
+         // Create a Phaser‐compatible Group to hold all enemies:
+         this.enemies = this.add.group();
+
+         // Choose your isometric tile coordinates or pixel coordinates:
+         // Here’s an example that spawns a level‐1 slime at tile (5,5):
+         const slimeTileX = 5, slimeTileY = 5;
+         const slimePxX = (slimeTileX - slimeTileY) * (this.tileW/2) + this.offsetX;
+         const slimePxY = (slimeTileX + slimeTileY) * (this.tileH/2) + this.offsetY;
+
+         // Construct the Slime enemy and add it to the group:
+         const slime = new Slime(this, slimePxX, slimePxY, /*level=*/1);
+         this.enemies.add(slime);
+          
           // —————————————————————————————
           // 3) INSTANTIATE MANAGERS: NPC, QUEST, DIALOGUE, TRADE
           // —————————————————————————————
@@ -431,6 +446,11 @@
           });
         }
       }
+
+       // Update each Slime in the enemies group:
+         this.enemies.getChildren().forEach(enemy => {
+        enemy.update(time, delta);
+         });
 
       // =========================
       // REGISTER ALL SCENES & LAUNCH
