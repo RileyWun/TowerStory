@@ -1,296 +1,192 @@
-<!-- … earlier in index.html … -->
-<script type="module">
-  import { NPCManager } from './assets/js/npc-manager.js';
-  import { QuestManager } from './assets/js/quest-manager.js';
-  import { DialogueTreeManager } from './assets/js/dialogue-tree-manager.js';
-  import { TradeManager } from './assets/js/trade-manager.js';
+// assets/js/enemy.js
 
-  window.addEventListener('load', () => {
-    class BootScene extends Phaser.Scene {
-      constructor(){ super('Boot'); }
-      create(){ this.scene.start('Preload'); }
-    }
+export class Enemy extends Phaser.GameObjects.Sprite {
+  /**
+   * @param {Phaser.Scene} scene 
+   * @param {number} isoX    – isometric X (tile‐coord)
+   * @param {number} isoY    – isometric Y (tile‐coord)
+   * @param {string} texture – key of loaded texture (e.g. "slime")
+   * @param {number} [level=1]
+   */
+  constructor(scene, isoX, isoY, texture, level = 1) {
+    // Convert (isoX, isoY) → screen (x, y)
+    const tileW = scene.tileW,
+          tileH = scene.tileH;
+    const screenX = (isoX - isoY) * (tileW / 2) + scene.offsetX;
+    const screenY = (isoX + isoY) * (tileH / 2) + scene.offsetY;
 
-    class PreloadScene extends Phaser.Scene {
-      constructor(){ super('Preload'); }
-      preload(){
-        this.load.tilemapTiledJSON('room','assets/maps/room.json');
-        this.load.spritesheet('tileset','assets/tiles/tileset.png',{ frameWidth:38,frameHeight:38 });
-        this.load.spritesheet('player','assets/player/Chibi-character-template_skin0_part2_by_AxulArt.png',{ frameWidth:32,frameHeight:32 });
-        this.load.image('chest','assets/objects/chest.png');
-        this.load.image('npc','assets/objects/npc.png');
-        this.load.image('potion','assets/icons/potion.png');
-        this.load.image('sword','assets/icons/sword.png');
-        this.load.image('coin','assets/icons/coin.png');  <!-- Ensure this key matches the 'coin' passed above -->
+    super(scene, screenX, screenY, texture);
+    scene.add.existing(this);
+    scene.physics.add.existing(this);
+
+    this.scene   = scene;
+    this.isoX    = isoX;
+    this.isoY    = isoY;
+    this.level   = level;
+    this.maxHp   = 5 * level;
+    this.hp      = this.maxHp;
+    this.speed   = 1 + 0.2 * level;
+    this.state   = 'idle';
+
+    this.setOrigin(0.5, 1);
+    this.setDepth(this.y);
+
+    // Container for name tag + health bar
+    this.uiContainer = scene.add.container(this.x, this.y);
+    this.uiContainer.setDepth(this.depth + 1);
+
+    // Health bar background
+    this.healthBarBg = scene.add.rectangle(0, -this.height - 10, 40, 6, 0x000000)
+      .setOrigin(0.5, 0.5);
+    // Health bar foreground (red)
+    this.healthBar = scene.add.rectangle(-20, -this.height - 10, 40, 6, 0xff0000)
+      .setOrigin(0, 0.5);
+
+    // Name‐level text above health bar
+    this.nameTag = scene.add.text(
+      0,
+      -this.height - 22,
+      `Slime – Lvl ${this.level}`,
+      {
+        font: '12px Arial',
+        fill: '#ffffff',
+        stroke: '#000000',
+        strokeThickness: 2,
+        align: 'center'
       }
-      create(){ this.scene.start('Main'); }
+    ).setOrigin(0.5, 1);
+
+    this.uiContainer.add([ this.healthBarBg, this.healthBar, this.nameTag ]);
+    this.uiContainer.setVisible(false);
+
+    // Choose an initial random wander direction
+    this.dirX = Phaser.Math.Between(-1, 1);
+    this.dirY = Phaser.Math.Between(-1, 1);
+
+    // Periodically (every 1–2 seconds) pick a new random wander direction
+    scene.time.addEvent({
+      delay: Phaser.Math.Between(1000, 2000),
+      callback: () => {
+        if (this.state !== 'dead') {
+          this.dirX = Phaser.Math.Between(-1, 1);
+          this.dirY = Phaser.Math.Between(-1, 1);
+        }
+      },
+      loop: true
+    });
+
+    // Optionally keep slimes within world bounds
+    this.body.setCollideWorldBounds(true);
+  }
+
+  /**
+   * Reduce HP, show UI, and trigger death if HP ≤ 0.
+   */
+  takeDamage(amount) {
+    if (this.state === 'dead') {
+      return;
     }
 
-    class MainScene extends Phaser.Scene {
-      constructor(){ super('Main'); }
+    this.hp -= amount;
+    if (this.hp <= 0) {
+      this.hp = 0;
+      this.state = 'dead';
+      this.uiContainer.setVisible(true);
+      this.updateHealthBar();
+      this.playDeath();
+    } else {
+      // Show health + name when hit
+      this.uiContainer.setVisible(true);
+      this.updateHealthBar();
 
-      create(){
-        const map = this.make.tilemap({ key:'room' });
-        map.addTilesetImage('tileset','tileset',map.tileWidth,map.tileHeight);
-        this.tileW = map.tileWidth; 
-        this.tileH = map.tileHeight;
-        this.mapW  = map.width; 
-        this.mapH  = map.height;
-        this.offsetX = this.scale.width / 2;
-        this.offsetY = (this.scale.height - (this.mapW + this.mapH) * (this.tileH / 2)) / 2 + this.tileH / 2;
+      // Auto‐hide UI after 1.5 seconds, if still alive
+      this.scene.time.delayedCall(1500, () => {
+        if (this.state !== 'dead') {
+          this.uiContainer.setVisible(false);
+        }
+      });
+    }
+  }
 
-        // … your existing floor & object setup …
-        this.floorData = map.getLayer('Floor').data.map(r => r.map(t => t.index > 0));
-        this.collisionData = map.getLayer('Collision').data.map(r => r.map(t => t.index > 0));
-        map.getLayer('Floor').data.forEach((row, y) => {
-          row.forEach((t, x) => {
-            if (t.index > 0) {
-              const frame = t.index - 1;
-              const sx = (x - y) * (this.tileW / 2) + this.offsetX;
-              const sy = (x + y) * (this.tileH / 2) + this.offsetY;
-              this.add.image(sx, sy, 'tileset', frame).setDepth(sy);
-            }
-          });
-        });
+  /**
+   * Update the red health bar width based on current HP.
+   */
+  updateHealthBar() {
+    const pct = Phaser.Math.Clamp(this.hp / this.maxHp, 0, 1);
+    this.healthBar.width = 40 * pct;
+  }
 
-        // Objects & Chests
-        const objs = map.getObjectLayer('Objects').objects;
-        const spawn = objs.find(o => o.name === 'PlayerSpawn');
-        this.playerInv = [
-          { iconKey: 'potion', count: 3 },
-          { iconKey: 'sword',  count: 1 }
-        ];
-        this.chests = [];
-        objs.forEach(o => {
-          const ix = o.x / this.tileW, 
-                iy = o.y / this.tileH;
-          const sx = (ix - iy) * (this.tileW / 2) + this.offsetX;
-          const sy = (ix + iy) * (this.tileH / 2) + this.offsetY;
-          if (o.type === 'Chest') {
-            const chest = this.add.image(sx, sy, 'chest')
-              .setOrigin(0.5,1)
-              .setDepth(sy)
-              .setInteractive();
-            chest.inventory = [];
-            chest.on('pointerdown', () => this.openInventory(this.playerInv, chest.inventory));
-            this.chests.push(chest);
-          }
-        });
+  /**
+   * Called each frame by MainScene.update(...)
+   */
+  update(time, delta) {
+    if (this.state === 'dead') return;
 
-        // Player
-        this.player = this.add.sprite(0, 0, 'player').setOrigin(0.5, 1);
-        this.createPlayerAnims();
-        this.playerIsoX = spawn.x / this.tileW;
-        this.playerIsoY = spawn.y / this.tileH;
-        const px = (this.playerIsoX - this.playerIsoY) * (this.tileW / 2) + this.offsetX;
-        const py = (this.playerIsoX + this.playerIsoY) * (this.tileH / 2) + this.offsetY;
-        this.player.setPosition(px, py).setDepth(py);
+    // Compute Manhattan distance (in iso coords) to player
+    const px = this.scene.playerIsoX,
+          py = this.scene.playerIsoY;
+    const dx = this.isoX - px,
+          dy = this.isoY - py;
+    const manDist = Math.abs(dx) + Math.abs(dy);
 
-        this.keys = this.input.keyboard.addKeys('W,A,S,D');
-        this.cameras.main.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
-        this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
+    if (manDist < 2) {
+      // ATTACK: move toward the player
+      this.state = 'attack';
+      const moveX = dx < 0 ? 1 : dx > 0 ? -1 : 0;
+      const moveY = dy < 0 ? 1 : dy > 0 ? -1 : 0;
+      this.isoX += moveX * this.speed * (delta / 1000);
+      this.isoY += moveY * this.speed * (delta / 1000);
+    } else {
+      // WANDER: random direction
+      this.state = 'idle';
+      this.isoX += this.dirX * this.speed * (delta / 1000);
+      this.isoY += this.dirY * this.speed * (delta / 1000);
 
-        // ** NEW: Create a physics group for dropped loot **
-        this.lootGroup = this.physics.add.group();
+      // Bounce if out of bounds
+      if (
+        this.isoX < 0 || this.isoX > this.scene.mapW ||
+        this.isoY < 0 || this.isoY > this.scene.mapH
+      ) {
+        this.dirX = Phaser.Math.Between(-1, 1);
+        this.dirY = Phaser.Math.Between(-1, 1);
+      }
+    }
 
-        // ** NEW: Set up overlap so player "picks up" coins **
-        this.physics.add.overlap(
-          this.player,
-          this.lootGroup,
-          this.collectLoot,
-          null,
-          this
+    // Convert iso coords → screen coords and update depth
+    const tileW = this.scene.tileW,
+          tileH = this.scene.tileH;
+    this.x = (this.isoX - this.isoY) * (tileW / 2) + this.scene.offsetX;
+    this.y = (this.isoX + this.isoY) * (tileH / 2) + this.scene.offsetY;
+    this.setDepth(this.y);
+
+    // Move UI container above sprite
+    this.uiContainer
+      .setPosition(this.x, this.y)
+      .setDepth(this.depth + 1);
+  }
+
+  /**
+   * On death: fade out, drop 2–5 coins, then destroy.
+   */
+  playDeath() {
+    const sceneRef = this.scene;
+
+    sceneRef.tweens.add({
+      targets: [ this, this.uiContainer ],
+      alpha: 0,
+      duration: 300,
+      onComplete: () => {
+        // Drop between 2 and 5 coins
+        const dropCount = Phaser.Math.Between(2, 5);
+        sceneRef.spawnLoot(
+          this.isoX,
+          this.isoY,
+          'coin',
+          dropCount
         );
-
-        // Managers
-        this.npcManager = new NPCManager(this);
-        this.npcManager.createFromObjects(objs);
-        this.questManager = new QuestManager(this);
-        this.dialogueTree = new DialogueTreeManager(this);
-        this.tradeManager   = new TradeManager(this);
-
-        // 1) Load each NPC’s main dialogue tree:
-        this.npcManager.npcs.forEach(npc => {
-          import(`./assets/js/dialogues/${npc.npcId}-tree.js`)
-            .then(mod => this.dialogueTree.registerTree(npc.npcId, mod.default))
-            .catch(err => console.warn(`No dialogue module for ${npc.npcId}`, err));
-        });
-
-        // 2) Load each quest dialogue tree
-        this.questManager.quests.forEach(quest => {
-          if (!quest.dialogueFile) return;
-          import(`./assets/js/dialogues/${quest.dialogueFile}`)
-            .then(mod => {
-              this.dialogueTree.registerTree(quest.id, mod.default);
-            })
-            .catch(err => console.warn(`Failed to load quest tree for ${quest.id}`, err));
-        });
-
-        // Conversation & interactions
-        this.npcManager.enableConversations('F', npc =>
-          this.dialogueTree.startDialogue(npc.npcId)
-        );
-
-        // Inventory & chest keys
-        this.events.on('inventoryClosed', data => {
-          this.playerInv = data.playerInv;
-          this.scene.resume();
-        });
-        this.input.keyboard.on('keydown-I',   () => this.openInventory(this.playerInv, null));
-        this.input.keyboard.on('keydown-E', () => {
-          const { x, y } = this.player;
-          this.chests.forEach(ch => {
-            if (Phaser.Math.Distance.Between(x, y, ch.x, ch.y) < 50) {
-              this.openInventory(this.playerInv, ch.inventory);
-            }
-          });
-        });
+        this.uiContainer.destroy();
+        this.destroy();
       }
-
-      createPlayerAnims() {
-        [
-          ['down', 0, 3], ['left', 12, 15],
-          ['right', 24, 27], ['up', 36, 39],
-          ['down-left', 48, 51], ['down-right', 60, 63],
-          ['up-left', 72, 75], ['up-right', 84, 87]
-        ].forEach(([k, s, e]) => {
-          this.anims.create({
-            key: `walk-${k}`,
-            frames: this.anims.generateFrameNumbers('player', { start: s, end: e }),
-            frameRate: 8,
-            repeat: -1
-          });
-        });
-      }
-
-      update(time, delta) {
-        const dt = delta / 1000, 
-              spd = 3;
-        let moved = false, dir = this.lastDir || 'down';
-        let nx = this.playerIsoX, 
-            ny = this.playerIsoY;
-        const { W, A, S, D } = this.keys;
-
-        if (W.isDown) { 
-          ny -= spd * dt; 
-          dir = 'up'; 
-          moved = true; 
-          this.player.play('walk-up', true); 
-        }
-        else if (S.isDown) {
-          ny += spd * dt; 
-          dir = 'down'; 
-          moved = true; 
-          this.player.play('walk-down', true);
-        }
-        if (A.isDown) { 
-          nx -= spd * dt; 
-          dir = 'left'; 
-          moved = true; 
-          this.player.play('walk-left', true);
-        }
-        else if (D.isDown) {
-          nx += spd * dt; 
-          dir = 'right'; 
-          moved = true; 
-          this.player.play('walk-right', true);
-        }
-
-        const tx = Math.floor(nx), ty = Math.floor(ny);
-        if (
-          nx >= 0 && nx < this.mapW &&
-          ny >= 0 && ny < this.mapH &&
-          this.floorData[ty][tx] &&
-          !this.collisionData[ty][tx]
-        ) {
-          this.playerIsoX = nx;
-          this.playerIsoY = ny;
-        }
-
-        if (!moved) {
-          this.player.anims.stop();
-          this.player.setFrame({ 
-            down: 0, left: 12, right: 24, up: 36 
-          }[dir]);
-        }
-        this.lastDir = dir;
-
-        const sx = (this.playerIsoX - this.playerIsoY) * (this.tileW / 2) + this.offsetX;
-        const sy = (this.playerIsoX + this.playerIsoY) * (this.tileH / 2) + this.offsetY;
-        this.player.setPosition(sx, sy).setDepth(sy);
-      }
-
-      // ** NEW HELPER: Spawn `count` coins at given iso coords **
-      spawnLoot(isoX, isoY, key, count) {
-        for (let i = 0; i < count; i++) {
-          // Spread them randomly within ±0.5 tile so they don’t stack exactly:
-          const rx = isoX + Phaser.Math.FloatBetween(-0.3, 0.3);
-          const ry = isoY + Phaser.Math.FloatBetween(-0.3, 0.3);
-
-          const tileW = this.tileW, tileH = this.tileH;
-          const px = (rx - ry) * (tileW / 2) + this.offsetX;
-          const py = (rx + ry) * (tileH / 2) + this.offsetY;
-
-          const loot = this.lootGroup.create(px, py, key)
-            .setOrigin(0.5, 1)
-            .setDepth(py)
-            .setScale(1)
-            .refreshBody();
-
-          // Give each coin a small bob‐animation (tween) so it’s easier to see
-          this.tweens.add({
-            targets: loot,
-            y: loot.y - 4,
-            duration: 400,
-            yoyo: true,
-            repeat: -1
-          });
-        }
-      }
-
-      // ** NEW OVERLAP CALLBACK: pick up any coin the player touches **
-      collectLoot(playerSprite, lootSprite) {
-        // 1) Remove coin sprite from the world
-        lootSprite.destroy();
-
-        // 2) Add a coin to the player's inventory array
-        const inv = this.playerInv;
-        const existing = inv.find(i => i.iconKey === 'coin');
-        if (existing) {
-          existing.count += 1;
-        } else {
-          inv.push({ iconKey: 'coin', count: 1 });
-        }
-
-        // 3) (Optionally) Fire an event or update the UI right away.
-        //    For example, you might want to auto‐refresh an open inventory:
-        this.events.emit('inventoryUpdated', { playerInv: inv });
-      }
-
-      openInventory(playerInv, chestInv) {
-        this.scene.pause();
-        this.scene.launch('InventoryScene', { playerInv, chestInv });
-      }
-      closeInventory() {
-        this.scene.stop('InventoryScene');
-        this.scene.resume();
-      }
-
-      openChoice(question, options, callback) {
-        this.scene.pause();
-        this.scene.launch('ChoiceScene', { question, options, callback });
-      }
-    }
-
-    // … DialogueScene, ChoiceScene, TradeScene, InventoryScene, etc. …
-
-    const config = {
-      type: Phaser.AUTO,
-      parent: 'game-container',
-      scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
-      physics: { default: 'arcade' },
-      scene: [ BootScene, PreloadScene, MainScene, DialogueScene, ChoiceScene, TradeScene, InventoryScene ]
-    };
-    new Phaser.Game(config);
-  });
-</script>
+    });
+  }
+}
