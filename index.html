@@ -162,29 +162,26 @@
           this.dialogueTree = new DialogueTreeManager(this);
           this.tradeManager = new TradeManager(this);
 
-          // 3a) Dynamically load each NPC’s main dialogue tree
-          this.npcManager.npcs.forEach(npc => {
-            import(`./assets/js/dialogues/${npc.npcId}-tree.js`)
-              .then(mod => {
-                this.dialogueTree.registerTree(npc.npcId, mod.default);
-                console.log(`Registered main tree for ${npc.npcId}`);
-              })
-              .catch(err => {
-                console.warn(`No dialogue module for ${npc.npcId}`, err);
-              });
-          });
+// 1) Load each NPC’s main dialogue tree:
+this.npcManager.npcs.forEach(npc => {
+  import(`./assets/js/dialogues/${npc.npcId}-tree.js`)
+    .then(mod => {
+      this.dialogueTree.registerTree(npc.npcId, mod.default);
+      console.log(`Registered main tree for ${npc.npcId}`);
+    })
+    .catch(err => console.warn(`No dialogue module for ${npc.npcId}`, err));
+});
 
-          // 3b) Dynamically load each quest’s dialogue tree (if a dialogueFile is provided)
-          this.questManager.quests.forEach(q => {
-            if (!q.dialogueFile) return;
-            import(`./assets/js/dialogues/${q.dialogueFile}`)
-              .then(mod => {
-                this.dialogueTree.registerTree(q.id, mod.default);
-                console.log(`Registered quest tree for ${q.id}`);
-              })
-              .catch(err => {
-                console.warn(`Failed to load quest tree for ${q.id}`, err);
-              });
+// 2) Load each quest dialogue tree:
+this.questManager.quests.forEach(quest => {
+  if (!quest.dialogueFile) return;
+  import(`./assets/js/dialogues/${quest.dialogueFile}`)
+    .then(mod => {
+      this.dialogueTree.registerTree(quest.id, mod.default);
+      console.log(`Registered quest tree for ${quest.id}`);
+    })
+    .catch(err => console.warn(`Failed to load quest tree for ${quest.id}`, err));
+});
           });
 
           // —――――――――――――――――――――――――――――――――――――
