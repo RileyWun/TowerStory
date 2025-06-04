@@ -14,11 +14,9 @@ export default {
       options: [
         {
           text: 'Absolutely, I’ll get them for you.',
-          action: () => {
-            console.log('merchant1Quest “Yes” clicked');
-            // This must match the exact quest ID you used in quest-manager.js:
-            this.scene.questManager.accept('merchant1Quest');
-          },
+action: function() {
+  this.questManager.accept('merchant1Quest');
+},
           next: 'questAccepted'
         },
         {
