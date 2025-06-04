@@ -45,7 +45,7 @@
     import { TradeManager }         from './assets/js/trade-manager.js';
     import { InventoryScene }       from './assets/js/inventory-scene.js';
     import { EquipmentScene }       from './assets/js/equipment-scene.js';
-    import { Slime }                from './assets/js/enemy.js';
+    import { Enemy }                from './assets/js/enemy.js';
 
     window.addEventListener('load', () => {
 
@@ -65,6 +65,7 @@
           this.load.image('potion', 'assets/icons/potion.png');
           this.load.image('sword',  'assets/icons/sword.png');
           this.load.image('coin',   'assets/icons/coin.png');
+          this.load.image('slime', 'assets/objects/slime.png');
         }
         create(){ this.scene.start('Main'); }
       }
@@ -162,9 +163,18 @@
          const slimePxX = (slimeTileX - slimeTileY) * (this.tileW/2) + this.offsetX;
          const slimePxY = (slimeTileX + slimeTileY) * (this.tileH/2) + this.offsetY;
 
-         // Construct the Slime enemy and add it to the group:
-         const slime = new Slime(this, slimePxX, slimePxY, /*level=*/1);
-         this.enemies.add(slime);
+      //    Since enemy.js exports “Enemy”, not “Slime”, do this instead:
+     //    Pick an iso‐tile coordinate for the slime (e.g. tileX=5, tileY=5).
+     const tileX = 5, tileY = 5;
+     //    Convert to on‐screen coords (this is handled inside Enemy’s constructor):
+     const slime = new Enemy(this, tileX, tileY, 'slime', /*level=*/1);
+     //    Add it to your enemies group so it updates each frame:
+     this.enemies = this.add.group();
+     this.enemies.add(slime);
+    if (this.enemies) {
+    this.enemies.getChildren().forEach(e => e.update(time, delta));
+  }
+}
           
           // —————————————————————————————
           // 3) INSTANTIATE MANAGERS: NPC, QUEST, DIALOGUE, TRADE
