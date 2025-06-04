@@ -20,12 +20,21 @@
         "sidebar-left main sidebar-right"
         "footer footer footer";
     }
-    #header         { grid-area: header; }
-    #sidebar-left   { grid-area: sidebar-left; }
-    #game-container { grid-area: main; position: relative; width: 100%; height: 100%; overflow: hidden; }
-    #sidebar-right  { grid-area: sidebar-right; }
-    #footer         { grid-area: footer; }
-    #game-container canvas { display: block; margin: auto; }
+    #header { grid-area: header; }
+    #sidebar-left { grid-area: sidebar-left; }
+    #game-container { 
+      grid-area: main; 
+      position: relative; 
+      width: 100%; 
+      height: 100%; 
+      overflow: hidden; 
+    }
+    #sidebar-right { grid-area: sidebar-right; }
+    #footer { grid-area: footer; }
+    #game-container canvas {
+      display: block;
+      margin: auto;
+    }
   </style>
 </head>
 <body>
@@ -35,9 +44,7 @@
   <div id="sidebar-right"></div>
   <div id="footer"></div>
 
-  <!-- Phaser 3 CDN -->
   <script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.min.js"></script>
-
   <script type="module">
     import { NPCManager }           from './assets/js/npc-manager.js';
     import { QuestManager }         from './assets/js/quest-manager.js';
@@ -48,18 +55,23 @@
     import { Enemy }                from './assets/js/enemy.js';
 
     window.addEventListener('load', () => {
-
       class BootScene extends Phaser.Scene {
-        constructor(){ super('Boot'); }
-        create(){ this.scene.start('Preload'); }
+        constructor() { super('Boot'); }
+        create() { this.scene.start('Preload'); }
       }
 
       class PreloadScene extends Phaser.Scene {
-        constructor(){ super('Preload'); }
-        preload(){
+        constructor() { super('Preload'); }
+        preload() {
           this.load.tilemapTiledJSON('room', 'assets/maps/room.json');
-          this.load.spritesheet('tileset', 'assets/tiles/tileset.png', { frameWidth: 38, frameHeight: 38 });
-          this.load.spritesheet('player', 'assets/player/Chibi-character-template_skin0_part2_by_AxulArt.png', { frameWidth: 32, frameHeight: 32 });
+          this.load.spritesheet(
+            'tileset', 'assets/tiles/tileset.png',
+            { frameWidth: 38, frameHeight: 38 }
+          );
+          this.load.spritesheet(
+            'player', 'assets/player/Chibi-character-template_skin0_part2_by_AxulArt.png',
+            { frameWidth: 32, frameHeight: 32 }
+          );
           this.load.image('chest',  'assets/objects/chest.png');
           this.load.image('npc',    'assets/objects/npc.png');
           this.load.image('potion', 'assets/icons/potion.png');
@@ -67,35 +79,30 @@
           this.load.image('coin',   'assets/icons/coin.png');
           this.load.image('slime',  'assets/objects/slime.png');
         }
-        create(){ this.scene.start('Main'); }
+        create() { this.scene.start('Main'); }
       }
 
       class MainScene extends Phaser.Scene {
-        constructor(){ super('Main'); }
-
+        constructor() { super('Main'); }
         create() {
-          // —————————————————————————————
-          // 1) BUILD & RENDER THE ISOMETRIC TILEMAP
-          // —————————————————————————————
           const map = this.make.tilemap({ key: 'room' });
-          map.addTilesetImage('tileset', 'tileset', map.tileWidth, map.tileHeight);
+          const tileset = map.addTilesetImage('tileset', 'tileset', map.tileWidth, map.tileHeight);
           this.tileW = map.tileWidth;
           this.tileH = map.tileHeight;
-          this.mapW  = map.width;
-          this.mapH  = map.height;
-
+          this.mapW = map.width;
+          this.mapH = map.height;
           this.offsetX = this.scale.width / 2;
-          this.offsetY = (this.scale.height - (this.mapW + this.mapH) * (this.tileH / 2)) / 2 + (this.tileH / 2);
+          this.offsetY = (
+            this.scale.height - (this.mapW + this.mapH) * (this.tileH / 2)
+          ) / 2 + this.tileH / 2;
 
-          // Floor + Collision arrays (2D booleans)
-          this.floorData     = map.getLayer('Floor').data.map(row => row.map(tile => tile.index > 0));
-          this.collisionData = map.getLayer('Collision').data.map(row => row.map(tile => tile.index > 0));
-
-          // Render floor tiles
+          // Floor + Collision data
+          this.floorData = map.getLayer('Floor').data.map(row => row.map(cell => cell.index > 0));
+          this.collisionData = map.getLayer('Collision').data.map(row => row.map(cell => cell.index > 0));
           map.getLayer('Floor').data.forEach((row, y) => {
-            row.forEach((tile, x) => {
-              if (tile.index > 0) {
-                const frame = tile.index - 1;
+            row.forEach((cell, x) => {
+              if (cell.index > 0) {
+                const frame = cell.index - 1;
                 const sx = (x - y) * (this.tileW / 2) + this.offsetX;
                 const sy = (x + y) * (this.tileH / 2) + this.offsetY;
                 this.add.image(sx, sy, 'tileset', frame).setDepth(sy);
@@ -103,26 +110,19 @@
             });
           });
 
-          // —————————————————————————————
-          // 2) PLACE OBJECTS: Player, Chests, NPCs
-          // —————————————————————————————
-          const objs     = map.getObjectLayer('Objects').objects;
+          // Objects & Chests
+          const objs = map.getObjectLayer('Objects').objects;
           const spawnObj = objs.find(o => o.name === 'PlayerSpawn');
-
-          // Initialize the player's inventory with placeholder items
           this.playerInv = [
             { iconKey: 'potion', count: 3 },
             { iconKey: 'sword',  count: 1 }
           ];
-
-          // 2a) Chests
           this.chests = [];
           objs.forEach(o => {
             const ix = o.x / this.tileW;
             const iy = o.y / this.tileH;
             const sx = (ix - iy) * (this.tileW / 2) + this.offsetX;
             const sy = (ix + iy) * (this.tileH / 2) + this.offsetY;
-
             if (o.type === 'Chest') {
               const chest = this.add.image(sx, sy, 'chest')
                 .setOrigin(0.5, 1)
@@ -135,10 +135,10 @@
               });
               this.chests.push(chest);
             }
-            // (…ignore NPC placement here…)
+            // NPCs and other objects get handled by NPCManager below
           });
 
-          // 2b) Player sprite
+          // Player
           this.player = this.add.sprite(0, 0, 'player').setOrigin(0.5, 1);
           this.createPlayerAnims();
           this.playerIsoX = spawnObj.x / this.tileW;
@@ -147,100 +147,84 @@
           const py = (this.playerIsoX + this.playerIsoY) * (this.tileH / 2) + this.offsetY;
           this.player.setPosition(px, py).setDepth(py);
 
-          // 2c) Camera & WASD
           this.keys = this.input.keyboard.addKeys('W,A,S,D');
           this.cameras.main.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
           this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
 
-          // —————————————————————————————
-          // 3) SPAWN SLIME (mob) INTO THE SCENE
-          // —————————————————————————————
+          // ——————————————————————————
+          // Spawn a group of slimes
+          // ——————————————————————————
           this.enemies = this.add.group();
-          // Example: spawn a level-1 slime at tile (5,5)
-          const tileX = 5, tileY = 5;
-          const slime = new Enemy(this, tileX, tileY, 'slime', /*level=*/1);
+          // Example: spawn one level‐1 slime at tile (5,5):
+          const slime = new Enemy(this, 5, 5, 'slime', 1);
           this.enemies.add(slime);
 
-          // —————————————————————————————
-          // 4) INSTANTIATE MANAGERS: NPC, QUEST, DIALOGUE, TRADE
-          // —————————————————————————————
-          this.npcManager    = new NPCManager(this);
+          // Managers
+          this.npcManager   = new NPCManager(this);
           this.npcManager.createFromObjects(objs);
+          this.questManager = new QuestManager(this);
+          this.dialogueTree = new DialogueTreeManager(this);
+          this.tradeManager = new TradeManager(this);
 
-          this.questManager  = new QuestManager(this);
-          this.dialogueTree  = new DialogueTreeManager(this);
-          this.tradeManager  = new TradeManager(this);
-
-          // 4a) Load each NPC’s main dialogue tree:
+          // 1) Load each NPC's main dialogue tree:
           this.npcManager.npcs.forEach(npc => {
             import(`./assets/js/dialogues/${npc.npcId}-tree.js`)
-              .then(mod => {
-                this.dialogueTree.registerTree(npc.npcId, mod.default);
-                console.log(`Registered main tree for ${npc.npcId}`);
-              })
+              .then(mod => this.dialogueTree.registerTree(npc.npcId, mod.default))
               .catch(err => console.warn(`No dialogue module for ${npc.npcId}`, err));
           });
 
-          // 4b) Load each quest dialogue tree:
+          // 2) Load each quest dialogue tree:
           this.questManager.quests.forEach(quest => {
             if (!quest.dialogueFile) return;
             import(`./assets/js/dialogues/${quest.dialogueFile}`)
               .then(mod => {
                 this.dialogueTree.registerTree(quest.id, mod.default);
-                console.log(`Registered quest tree for ${quest.id}`);
               })
               .catch(err => console.warn(`Failed to load quest tree for ${quest.id}`, err));
           });
 
-          // —————————————————————————————
-          // 5) INTERACTIONS & EVENT LISTENERS
-          // —————————————————————————————
-
-          // 5a) NPC conversations: press “F” near NPC to talk
-          this.npcManager.enableConversations('F', (npc) => {
+          // Conversation & interactions
+          this.npcManager.enableConversations('F', npc => {
             this.dialogueTree.startDialogue(npc.npcId);
           });
 
-          // 5b) Listen for “inventoryClosed” event
-          this.events.on('inventoryClosed', (payload) => {
-            this.playerInv = payload.playerInv;
+          // Inventory & Equipment keys
+          this.events.on('inventoryClosed', data => {
+            this.playerInv = data.playerInv;
             this.scene.resume();
           });
-
-          // 5c) Listen for “equipmentChanged” event
-          this.events.on('equipmentChanged', (payload) => {
-            this.playerInv = payload.playerInv;
-            this.equipped  = payload.equipped;
+          this.events.on('equipmentChanged', data => {
+            this.playerInv = data.playerInv;
+            this.equipped  = data.equipped;
             this.scene.resume();
-            console.log('Equipment updated:', this.equipped);
           });
-
-          // 5d) Press “I” to open Inventory
           this.input.keyboard.on('keydown-I', () => {
             this.openInventory(this.playerInv, null);
             this.scene.pause();
           });
-
-          // 5e) Press “E” to open the Equipment panel
           this.input.keyboard.on('keydown-E', () => {
             this.openEquipment(this.playerInv, this.equipped);
             this.scene.pause();
           });
+
+          // Attack input
+          this.input.on('pointerdown',   () => this.playerAttack());
+          this.input.keyboard.on('keydown-SPACE', () => this.playerAttack());
         }
 
         createPlayerAnims() {
           [
-            ['down',       0,  3],
-            ['left',      12, 15],
-            ['right',     24, 27],
-            ['up',        36, 39],
+            ['down', 0, 3],
+            ['left', 12, 15],
+            ['right', 24, 27],
+            ['up', 36, 39],
             ['down-left', 48, 51],
-            ['down-right',60, 63],
-            ['up-left',   72, 75],
-            ['up-right',  84, 87]
+            ['down-right', 60, 63],
+            ['up-left', 72, 75],
+            ['up-right', 84, 87]
           ].forEach(([k, s, e]) => {
             this.anims.create({
-              key:   `walk-${k}`,
+              key: `walk-${k}`,
               frames: this.anims.generateFrameNumbers('player', { start: s, end: e }),
               frameRate: 8,
               repeat: -1
@@ -248,25 +232,34 @@
           });
         }
 
-        openInventory(playerInv, chestInv) {
-          this.scene.launch('InventoryScene', { playerInv, chestInv });
-        }
+        playerAttack() {
+          // Flash to an “attack” frame, e.g. index 92
+          this.player.setFrame(92);
+          this.time.delayedCall(100, () => {
+            const dir = this.lastDir || 'down';
+            const idleFrame = { down: 0, left: 12, right: 24, up: 36 }[dir];
+            this.player.setFrame(idleFrame);
+          });
 
-        openEquipment(playerInv, equipped) {
-          this.scene.launch('EquipmentScene', { playerInv, equipped });
+          const DAMAGE = 1;
+          this.enemies.getChildren().forEach(enemy => {
+            const dx = enemy.isoX - this.playerIsoX;
+            const dy = enemy.isoY - this.playerIsoY;
+            const dist = Math.abs(dx) + Math.abs(dy);
+            if (dist < 1.5) {
+              enemy.takeDamage(DAMAGE);
+            }
+          });
         }
 
         update(time, delta) {
-          // —————————————————————————————
-          // 6) PLAYER MOVEMENT & CAMERA
-          // —————————————————————————————
-          const dt    = delta / 1000;
-          const speed = 3;
-          let moved = false;
-          let dir   = this.lastDir || 'down';
-
-          let nx = this.playerIsoX;
-          let ny = this.playerIsoY;
+          // Player movement
+          const dt = delta / 1000,
+                speed = 3;
+          let moved = false,
+              dir   = this.lastDir || 'down';
+          let nx = this.playerIsoX,
+              ny = this.playerIsoY;
           const { W, A, S, D } = this.keys;
 
           if (W.isDown) {
@@ -292,8 +285,8 @@
             this.player.play('walk-right', true);
           }
 
-          const tx = Math.floor(nx);
-          const ty = Math.floor(ny);
+          const tx = Math.floor(nx),
+                ty = Math.floor(ny);
           if (
             nx >= 0 && nx < this.mapW &&
             ny >= 0 && ny < this.mapH &&
@@ -313,43 +306,37 @@
           const sy = (this.playerIsoX + this.playerIsoY) * (this.tileH / 2) + this.offsetY;
           this.player.setPosition(sx, sy).setDepth(sy);
 
-          // —————————————————————————————
-          // 7) UPDATE EACH SLIME (enemy)
-          // —————————————————————————————
-          if (this.enemies) {
-            this.enemies.getChildren().forEach(e => e.update(time, delta));
-          }
+          // Update all enemies
+          this.enemies.getChildren().forEach(e => e.update(time, delta));
+        }
+
+        openInventory(playerInv, chestInv) {
+          this.scene.launch('InventoryScene', { playerInv, chestInv });
+        }
+        openEquipment(playerInv, equipped) {
+          this.scene.launch('EquipmentScene', { playerInv, equipped });
         }
       }
 
-      // =========================
-      // Dialogue Scene (with wrapping)
-      // =========================
+      // Dialogue Scene
       class DialogueScene extends Phaser.Scene {
         constructor() { super('DialogueScene'); }
         init(data) { this.lines = data.lines || []; }
         create() {
-          const w = this.scale.width, h = this.scale.height;
-
-          // Draw translucent background
+          const w = this.scale.width,
+                h = this.scale.height;
+          const pad = 20;
+          const boxW = w / 2,
+                boxH = h / 4,
+                boxX = w / 4,
+                boxY = h / 4;
           this.add.graphics()
             .fillStyle(0x000000, 0.7)
-            .fillRect(w/4, h/4, w/2, h/4);
+            .fillRect(boxX, boxY, boxW, boxH);
 
-          // Wrap width = box width minus 40px padding
-          const wrapWidth = (w/2) - 40;
-
-          this.lines.forEach((l, i) => {
-            this.add.text(
-              w/4 + 20,
-              h/4 + 20 + i * 24,
-              l,
-              {
-                fontSize: '18px',
-                fill: '#fff',
-                wordWrap: { width: wrapWidth }
-              }
-            );
+          const textStyle = { fontSize: '18px', fill: '#fff', wordWrap: { width: boxW - pad * 2 } };
+          this.lines.forEach((line, i) => {
+            this.add.text(boxX + pad, boxY + pad + i * 24, line, textStyle);
           });
 
           const closeDialog = () => {
@@ -357,15 +344,12 @@
             this.scene.resume('Main');
             this.scene.get('Main').events.emit('dialogueClosed');
           };
-
           this.input.keyboard.once('keydown-ESC', closeDialog);
           this.input.once('pointerdown', closeDialog);
         }
       }
 
-      // =========================
-      // Choice Scene (with wrapping)
-      // =========================
+      // Choice Scene
       class ChoiceScene extends Phaser.Scene {
         constructor() { super('ChoiceScene'); }
         init(data) {
@@ -374,37 +358,27 @@
           this.callback = data.callback;
         }
         create() {
-          const w = this.scale.width, h = this.scale.height;
-
-          // Draw translucent background
+          const w = this.scale.width,
+                h = this.scale.height;
+          const pad = 20;
+          const boxW = w / 2,
+                boxH = h / 4,
+                boxX = w / 4,
+                boxY = h / 4;
           this.add.graphics()
             .fillStyle(0x000000, 0.7)
-            .fillRect(w/4, h/4, w/2, h/4);
+            .fillRect(boxX, boxY, boxW, boxH);
 
-          // Wrap width = box width minus 40px padding
-          const wrapWidth = (w/2) - 40;
+          const textStyle = { fontSize: '18px', fill: '#fff', wordWrap: { width: boxW - pad * 2 } };
+          this.add.text(boxX + pad, boxY + pad, this.question, textStyle);
 
-          // Draw the question with wordWrap
-          this.add.text(
-            w/4 + 20,
-            h/4 + 20,
-            this.question,
-            {
-              fontSize: '18px',
-              fill: '#fff',
-              wordWrap: { width: wrapWidth }
-            }
-          );
-
-          // Draw each option below
           this.options.forEach((opt, idx) => {
             const txt = this.add.text(
-              w/4 + 40,
-              h/4 + 60 + idx * 30,
+              boxX + pad * 2,
+              boxY + pad * 2 + 30 + idx * 30,
               opt,
-              { fontSize:'16px', fill:'#ff0' }
+              { fontSize: '16px', fill: '#ff0' }
             ).setInteractive();
-
             txt.on('pointerdown', () => {
               if (this.callback) this.callback(idx);
               this.scene.stop('ChoiceScene');
@@ -414,36 +388,26 @@
         }
       }
 
-      // =========================
-      // Trade Scene (with wrapping)
-      // =========================
+      // Trade Scene (placeholder UI)
       class TradeScene extends Phaser.Scene {
         constructor() { super('TradeScene'); }
         init(data) {
           this.npcId = data.npcId;
         }
         create() {
-          const w = this.scale.width, h = this.scale.height;
-
-          // Draw translucent background
+          const w = this.scale.width,
+                h = this.scale.height;
+          const pad = 20;
+          const boxW = w / 2,
+                boxH = h / 2,
+                boxX = w / 4,
+                boxY = h / 4;
           this.add.graphics()
             .fillStyle(0x000000, 0.8)
-            .fillRect(w/4, h/4, w/2, h/2);
+            .fillRect(boxX, boxY, boxW, boxH);
 
-          // Wrap width = box width minus 40px padding
-          const wrapWidth = (w/2) - 40;
-
-          // Draw “Trading with …” text, wrapped
-          this.add.text(
-            w/4 + 20,
-            h/4 + 20,
-            `Trading with ${this.npcId}`,
-            {
-              fontSize: '18px',
-              fill: '#fff',
-              wordWrap: { width: wrapWidth }
-            }
-          );
+          const textStyle = { fontSize: '18px', fill: '#fff', wordWrap: { width: boxW - pad * 2 } };
+          this.add.text(boxX + pad, boxY + pad, `Trading with ${this.npcId}`, textStyle);
 
           this.input.keyboard.once('keydown-ESC', () => {
             this.scene.stop('TradeScene');
@@ -452,9 +416,6 @@
         }
       }
 
-      // =========================
-      // REGISTER ALL SCENES & LAUNCH
-      // =========================
       const config = {
         type: Phaser.AUTO,
         parent: 'game-container',
@@ -462,9 +423,7 @@
           mode: Phaser.Scale.FIT,
           autoCenter: Phaser.Scale.CENTER_BOTH
         },
-        physics: {
-          default: 'arcade'
-        },
+        physics: { default: 'arcade' },
         scene: [
           BootScene,
           PreloadScene,
@@ -476,8 +435,8 @@
           EquipmentScene
         ]
       };
-      new Phaser.Game(config);
 
+      new Phaser.Game(config);
     });
   </script>
 </body>
