@@ -7,20 +7,12 @@ export class DialogueTreeManager {
     this.currentTree = null;
   }
 
-  /**
-   * Register a dialogue tree for a given npcId.
-   * @param {string} npcId
-   * @param {object} treeDefinition
-   */
   registerTree(npcId, treeDefinition) {
     this.trees[npcId] = treeDefinition;
   }
 
-  /**
-   * Kick off a dialogue for the specified NPC.
-   * @param {string} npcId
-   */
   startDialogue(npcId) {
+    console.log(`DialogueTreeManager.startDialogue("${npcId}") called`);
     const tree = this.trees[npcId];
     if (!tree) {
       console.warn(`No dialogue tree found for ${npcId}`);
@@ -30,45 +22,31 @@ export class DialogueTreeManager {
     this._runNode(tree.start);
   }
 
-  /**
-   * Internal: process a single node.
-   * @param {string} nodeKey
-   */
   _runNode(nodeKey) {
+    console.log(`_runNode("${nodeKey}")`);
     const node = this.currentTree.nodes[nodeKey];
-    if (!node) return;
+    if (!node) {
+      console.warn(`DialogueTreeManager._runNode: no node "${nodeKey}"`);
+      return;
+    }
 
     if (node.type === 'text') {
-      // Show text, then advance on close.
+      // show text, then advance
       this.scene.scene.launch('DialogueScene', { lines: node.lines });
-
-      // Once the DialogueScene emits 'dialogueClosed', move to the next node.
       this.scene.events.once('dialogueClosed', () => {
-        if (node.next) {
-          this._runNode(node.next);
-        }
+        if (node.next) this._runNode(node.next);
       });
     }
     else if (node.type === 'choice') {
-      // Build an array of the option texts:
-      const optionsArray = node.options.map(opt => opt.text);
-
-      // Launch the ChoiceScene, passing question, options, and a callback.
+      console.log(`Launching ChoiceScene for question: "${node.question}"`);
+      const texts = node.options.map(o => o.text);
       this.scene.scene.launch('ChoiceScene', {
         question: node.question,
-        options: optionsArray,
+        options: texts,
         callback: idx => {
-          const chosenOpt = node.options[idx];
-
-          // 1) Run the action, if one was provided:
-          if (chosenOpt.action) {
-            chosenOpt.action(this.scene);
-          }
-
-          // 2) Then follow the 'next' pointer, if present:
-          if (chosenOpt.next) {
-            this._runNode(chosenOpt.next);
-          }
+          const opt = node.options[idx];
+          if (opt.action) opt.action.call(this.scene);
+          if (opt.next) this._runNode(opt.next);
         }
       });
     }
