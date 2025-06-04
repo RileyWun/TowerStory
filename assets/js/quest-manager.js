@@ -50,7 +50,7 @@ export class QuestManager {
    * Finds the quest for that NPC and (if the dialogue tree was registered) starts it.
    */
   startQuest(npcId) {
-    const quest = this.getQuestFor(npcId);
+  const quest = this.getQuestFor(npcId); // now getQuestFor('merchant1') finds the correct object
     if (!quest) {
       console.warn(`QuestManager.startQuest: no quest found for ${npcId}`);
       return;
