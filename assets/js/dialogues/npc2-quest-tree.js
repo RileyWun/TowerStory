@@ -14,10 +14,9 @@ export default {
       options: [
         {
           text: 'Yes, of course!',
-          action: () => {
-            console.log('NPC2 quest “Yes” clicked');
-            this.scene.questManager.accept('quest2');
-          },
+action: function() {
+  this.questManager.accept('quest2');
+},
           next: 'questAccepted'
         },
         {
