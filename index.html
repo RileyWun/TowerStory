@@ -44,7 +44,7 @@
     import { DialogueTreeManager }  from './assets/js/dialogue-tree-manager.js';
     import { TradeManager }         from './assets/js/trade-manager.js';
 
-    // Our two new scenes live in separate files:
+    // The Inventory and Equipment scenes now live in separate files:
     import { InventoryScene }       from './assets/js/inventory-scene.js';
     import { EquipmentScene }       from './assets/js/equipment-scene.js';
 
@@ -192,7 +192,6 @@
           });
 
           // 4b) Listen for “inventoryClosed” event
-          //     When that fires, update this.playerInv with the new array.
           this.events.on('inventoryClosed', (payload) => {
             this.playerInv = payload.playerInv;
             this.scene.resume();
@@ -212,16 +211,13 @@
             this.scene.pause();
           });
 
-          // 4e) Press “E” to open the Equipment panel (no conflict with chests)
+          // 4e) Press “E” to open the Equipment panel
           this.input.keyboard.on('keydown-E', () => {
             this.openEquipment(this.playerInv, this.equipped);
             this.scene.pause();
           });
         }
 
-        /**
-         * Create the eight walking animations for the player (down, left, right, up, etc.).
-         */
         createPlayerAnims() {
           [
             ['down',       0,  3],
@@ -242,22 +238,15 @@
           });
         }
 
-        /**
-         * Open the inventory UI. chestInv may be null (meaning “just show player’s own inv”).
-         */
         openInventory(playerInv, chestInv) {
           this.scene.launch('InventoryScene', { playerInv, chestInv });
         }
 
-        /**
-         * Open the equipment UI, passing the current inventory & equipped map.
-         */
         openEquipment(playerInv, equipped) {
           this.scene.launch('EquipmentScene', { playerInv, equipped });
         }
 
         update(time, delta) {
-          // Player movement logic:
           const dt    = delta / 1000;
           const speed = 3;
           let moved = false;
@@ -307,52 +296,56 @@
           }
           this.lastDir = dir;
 
-          // Update player’s isometric position on screen:
           const sx = (this.playerIsoX - this.playerIsoY) * (this.tileW / 2) + this.offsetX;
           const sy = (this.playerIsoX + this.playerIsoY) * (this.tileH / 2) + this.offsetY;
           this.player.setPosition(sx, sy).setDepth(sy);
         }
       }
 
-      // 5) DIALOGUE / CHOICE / TRADE SCENES
+      // =========================
+      // Dialogue Scene (with wrapping)
+      // =========================
       class DialogueScene extends Phaser.Scene {
-  constructor() { super('DialogueScene'); }
-  init(data) { this.lines = data.lines || []; }
-  create() {
-    const w = this.scale.width, h = this.scale.height;
+        constructor() { super('DialogueScene'); }
+        init(data) { this.lines = data.lines || []; }
+        create() {
+          const w = this.scale.width, h = this.scale.height;
 
-    // semi‐transparent backdrop
-    this.add.graphics()
-      .fillStyle(0x000000, 0.7)
-      .fillRect(w/4, h/4, w/2, h/4);
+          // Draw translucent background
+          this.add.graphics()
+            .fillStyle(0x000000, 0.7)
+            .fillRect(w/4, h/4, w/2, h/4);
 
-    // wrap width = box width minus padding (here: 40px total)
-    const wrapWidth = (w/2) - 40;
+          // Wrap width = box width minus 40px padding
+          const wrapWidth = (w/2) - 40;
 
-    // draw each line with wordWrap enabled
-    this.lines.forEach((l, i) => {
-      this.add.text(
-        w/4 + 20,             // x (inside box, with 20px padding)
-        h/4 + 20 + i*24,      // y
-        l,                    // the full string (no need to split manually)
-        {
-          fontSize: '18px',
-          fill: '#fff',
-          wordWrap: { width: wrapWidth }
+          this.lines.forEach((l, i) => {
+            this.add.text(
+              w/4 + 20,
+              h/4 + 20 + i * 24,
+              l,
+              {
+                fontSize: '18px',
+                fill: '#fff',
+                wordWrap: { width: wrapWidth }
+              }
+            );
+          });
+
+          const closeDialog = () => {
+            this.scene.stop('DialogueScene');
+            this.scene.resume('Main');
+            this.scene.get('Main').events.emit('dialogueClosed');
+          };
+
+          this.input.keyboard.once('keydown-ESC', closeDialog);
+          this.input.once('pointerdown', closeDialog);
         }
-      );
-    });
+      }
 
-    const closeDialog = () => {
-      this.scene.stop('DialogueScene');
-      this.scene.resume('Main');
-      this.scene.get('Main').events.emit('dialogueClosed');
-    };
-    this.input.keyboard.once('keydown-ESC', closeDialog);
-    this.input.once('pointerdown', closeDialog);
-  }
-}
-
+      // =========================
+      // Choice Scene (with wrapping)
+      // =========================
       class ChoiceScene extends Phaser.Scene {
         constructor() { super('ChoiceScene'); }
         init(data) {
@@ -362,12 +355,36 @@
         }
         create() {
           const w = this.scale.width, h = this.scale.height;
-          this.add.graphics().fillStyle(0x000000, 0.7)
+
+          // Draw translucent background
+          this.add.graphics()
+            .fillStyle(0x000000, 0.7)
             .fillRect(w/4, h/4, w/2, h/4);
-          this.add.text(w/4 + 20, h/4 + 20, this.question, { fontSize:'18px', fill:'#fff' });
+
+          // Wrap width = box width minus 40px padding
+          const wrapWidth = (w/2) - 40;
+
+          // Draw the question with wordWrap
+          this.add.text(
+            w/4 + 20,
+            h/4 + 20,
+            this.question,
+            {
+              fontSize: '18px',
+              fill: '#fff',
+              wordWrap: { width: wrapWidth }
+            }
+          );
+
+          // Draw each option below
           this.options.forEach((opt, idx) => {
-            const txt = this.add.text(w/4 + 40, h/4 + 60 + idx*30, opt, { fontSize:'16px', fill:'#ff0' })
-              .setInteractive();
+            const txt = this.add.text(
+              w/4 + 40,
+              h/4 + 60 + idx * 30,
+              opt,
+              { fontSize:'16px', fill:'#ff0' }
+            ).setInteractive();
+
             txt.on('pointerdown', () => {
               if (this.callback) this.callback(idx);
               this.scene.stop('ChoiceScene');
@@ -377,6 +394,9 @@
         }
       }
 
+      // =========================
+      // Trade Scene (with wrapping)
+      // =========================
       class TradeScene extends Phaser.Scene {
         constructor() { super('TradeScene'); }
         init(data) {
@@ -384,10 +404,27 @@
         }
         create() {
           const w = this.scale.width, h = this.scale.height;
+
+          // Draw translucent background
           this.add.graphics()
             .fillStyle(0x000000, 0.8)
             .fillRect(w/4, h/4, w/2, h/2);
-          this.add.text(w/4 + 20, h/4 + 20, `Trading with ${this.npcId}`, { fontSize:'18px', fill:'#fff' });
+
+          // We allow up to w/2 - 40 px of text before wrapping
+          const wrapWidth = (w/2) - 40;
+
+          // Draw “Trading with …” text, wrapped
+          this.add.text(
+            w/4 + 20,
+            h/4 + 20,
+            `Trading with ${this.npcId}`,
+            {
+              fontSize: '18px',
+              fill: '#fff',
+              wordWrap: { width: wrapWidth }
+            }
+          );
+
           this.input.keyboard.once('keydown-ESC', () => {
             this.scene.stop('TradeScene');
             this.scene.resume('Main');
@@ -395,7 +432,9 @@
         }
       }
 
-      // 6) REGISTER ALL SCENES & LAUNCH!
+      // =========================
+      // REGISTER ALL SCENES & LAUNCH
+      // =========================
       const config = {
         type: Phaser.AUTO,
         parent: 'game-container',
@@ -418,6 +457,7 @@
         ]
       };
       new Phaser.Game(config);
+
     });
   </script>
 </body>
