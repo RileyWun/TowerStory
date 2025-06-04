@@ -20,11 +20,11 @@
         "sidebar-left main sidebar-right"
         "footer footer footer";
     }
-    #header        { grid-area: header; }
-    #sidebar-left  { grid-area: sidebar-left; }
-    #game-container{ grid-area: main; position: relative; width:100%; height:100%; overflow:hidden; }
-    #sidebar-right { grid-area: sidebar-right; }
-    #footer        { grid-area: footer; }
+    #header         { grid-area: header; }
+    #sidebar-left   { grid-area: sidebar-left; }
+    #game-container { grid-area: main; position: relative; width: 100%; height: 100%; overflow: hidden; }
+    #sidebar-right  { grid-area: sidebar-right; }
+    #footer         { grid-area: footer; }
     #game-container canvas { display: block; margin: auto; }
   </style>
 </head>
@@ -39,14 +39,14 @@
   <script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.min.js"></script>
 
   <script type="module">
-    import { NPCManager }             from './assets/js/npc-manager.js';
-    import { QuestManager }           from './assets/js/quest-manager.js';
-    import { DialogueTreeManager }    from './assets/js/dialogue-tree-manager.js';
-    import { TradeManager }           from './assets/js/trade-manager.js';
+    import { NPCManager }           from './assets/js/npc-manager.js';
+    import { QuestManager }         from './assets/js/quest-manager.js';
+    import { DialogueTreeManager }  from './assets/js/dialogue-tree-manager.js';
+    import { TradeManager }         from './assets/js/trade-manager.js';
 
-    // InventoryScene and EquipmentScene come from our two new files:
-    import { InventoryScene }         from './assets/js/inventory-scene.js';
-    import { EquipmentScene }         from './assets/js/equipment-scene.js';
+    // Our two new scenes live in separate files:
+    import { InventoryScene }       from './assets/js/inventory-scene.js';
+    import { EquipmentScene }       from './assets/js/equipment-scene.js';
 
     window.addEventListener('load', () => {
 
@@ -58,14 +58,14 @@
       class PreloadScene extends Phaser.Scene {
         constructor(){ super('Preload'); }
         preload(){
-          this.load.tilemapTiledJSON('room','assets/maps/room.json');
-          this.load.spritesheet('tileset','assets/tiles/tileset.png',{ frameWidth:38, frameHeight:38 });
-          this.load.spritesheet('player','assets/player/Chibi-character-template_skin0_part2_by_AxulArt.png',{ frameWidth:32, frameHeight:32 });
-          this.load.image('chest','assets/objects/chest.png');
-          this.load.image('npc','assets/objects/npc.png');
-          this.load.image('potion','assets/icons/potion.png');
-          this.load.image('sword','assets/icons/sword.png');
-          this.load.image('coin','assets/icons/coin.png');
+          this.load.tilemapTiledJSON('room', 'assets/maps/room.json');
+          this.load.spritesheet('tileset', 'assets/tiles/tileset.png', { frameWidth: 38, frameHeight: 38 });
+          this.load.spritesheet('player', 'assets/player/Chibi-character-template_skin0_part2_by_AxulArt.png', { frameWidth: 32, frameHeight: 32 });
+          this.load.image('chest',  'assets/objects/chest.png');
+          this.load.image('npc',    'assets/objects/npc.png');
+          this.load.image('potion', 'assets/icons/potion.png');
+          this.load.image('sword',  'assets/icons/sword.png');
+          this.load.image('coin',   'assets/icons/coin.png');
         }
         create(){ this.scene.start('Main'); }
       }
@@ -74,45 +74,45 @@
         constructor(){ super('Main'); }
 
         create() {
-          // —――――――――――――――――――――――――――――――――――――
+          // —————————————————————————————
           // 1) BUILD & RENDER THE ISOMETRIC TILEMAP
-          // —――――――――――――――――――――――――――――――――――――
-          const map = this.make.tilemap({ key:'room' });
-          map.addTilesetImage('tileset','tileset',map.tileWidth,map.tileHeight);
-          this.tileW = map.tileWidth; 
+          // —————————————————————————————
+          const map = this.make.tilemap({ key: 'room' });
+          map.addTilesetImage('tileset', 'tileset', map.tileWidth, map.tileHeight);
+          this.tileW = map.tileWidth;
           this.tileH = map.tileHeight;
-          this.mapW  = map.width; 
+          this.mapW  = map.width;
           this.mapH  = map.height;
 
           this.offsetX = this.scale.width / 2;
-          this.offsetY = (this.scale.height - (this.mapW + this.mapH) * (this.tileH/2)) / 2 + (this.tileH/2);
+          this.offsetY = (this.scale.height - (this.mapW + this.mapH) * (this.tileH / 2)) / 2 + (this.tileH / 2);
 
           // Floor + Collision arrays (2D booleans)
-          this.floorData = map.getLayer('Floor').data.map(row => row.map(tile => tile.index > 0));
+          this.floorData     = map.getLayer('Floor').data.map(row => row.map(tile => tile.index > 0));
           this.collisionData = map.getLayer('Collision').data.map(row => row.map(tile => tile.index > 0));
 
-          // Render floor
+          // Render floor tiles
           map.getLayer('Floor').data.forEach((row, y) => {
             row.forEach((tile, x) => {
               if (tile.index > 0) {
                 const frame = tile.index - 1;
-                const sx = (x - y) * (this.tileW/2) + this.offsetX;
-                const sy = (x + y) * (this.tileH/2) + this.offsetY;
+                const sx = (x - y) * (this.tileW / 2) + this.offsetX;
+                const sy = (x + y) * (this.tileH / 2) + this.offsetY;
                 this.add.image(sx, sy, 'tileset', frame).setDepth(sy);
               }
             });
           });
 
-          // —――――――――――――――――――――――――――――――――――――
+          // —————————————————————————————
           // 2) PLACE OBJECTS: Player, Chests, NPCs
-          // —――――――――――――――――――――――――――――――――――――
-          const objs = map.getObjectLayer('Objects').objects;
-          const spawnObj = objs.find(o => o.name==='PlayerSpawn');
+          // —————————————————————————————
+          const objs     = map.getObjectLayer('Objects').objects;
+          const spawnObj = objs.find(o => o.name === 'PlayerSpawn');
 
-          // Initialize the player's inventory with some placeholder items
+          // Initialize the player's inventory with placeholder items
           this.playerInv = [
-            { iconKey:'potion', count:3 },
-            { iconKey:'sword',  count:1 }
+            { iconKey: 'potion', count: 3 },
+            { iconKey: 'sword',  count: 1 }
           ];
 
           // 2a) Chests
@@ -120,17 +120,16 @@
           objs.forEach(o => {
             const ix = o.x / this.tileW;
             const iy = o.y / this.tileH;
-            const sx = (ix - iy) * (this.tileW/2) + this.offsetX;
-            const sy = (ix + iy) * (this.tileH/2) + this.offsetY;
+            const sx = (ix - iy) * (this.tileW / 2) + this.offsetX;
+            const sy = (ix + iy) * (this.tileH / 2) + this.offsetY;
 
             if (o.type === 'Chest') {
               const chest = this.add.image(sx, sy, 'chest')
                 .setOrigin(0.5, 1)
                 .setDepth(sy)
                 .setInteractive();
-              chest.inventory = []; // will hold that chest’s own array
+              chest.inventory = []; // each chest has its own array
               chest.on('pointerdown', () => {
-                // Open InventoryScene(playerInv, chest.inventory)
                 this.openInventory(this.playerInv, chest.inventory);
                 this.scene.pause();
               });
@@ -139,56 +138,55 @@
           });
 
           // 2b) Player sprite
-          this.player = this.add.sprite(0,0, 'player').setOrigin(0.5, 1);
+          this.player = this.add.sprite(0, 0, 'player').setOrigin(0.5, 1);
           this.createPlayerAnims();
           this.playerIsoX = spawnObj.x / this.tileW;
           this.playerIsoY = spawnObj.y / this.tileH;
-          const px = (this.playerIsoX - this.playerIsoY) * (this.tileW/2) + this.offsetX;
-          const py = (this.playerIsoX + this.playerIsoY) * (this.tileH/2) + this.offsetY;
+          const px = (this.playerIsoX - this.playerIsoY) * (this.tileW / 2) + this.offsetX;
+          const py = (this.playerIsoX + this.playerIsoY) * (this.tileH / 2) + this.offsetY;
           this.player.setPosition(px, py).setDepth(py);
 
           // 2c) Camera & WASD
           this.keys = this.input.keyboard.addKeys('W,A,S,D');
-          this.cameras.main.setBounds(0,0, map.widthInPixels, map.heightInPixels);
+          this.cameras.main.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
           this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
 
-          // —――――――――――――――――――――――――――――――――――――
-          // 3) INSTANCIATE MANAGERS: NPC, QUEST, DIALOGUE, TRADE
-          // —――――――――――――――――――――――――――――――――――――
-          this.npcManager = new NPCManager(this);
+          // —————————————————————————————
+          // 3) INSTANTIATE MANAGERS: NPC, QUEST, DIALOGUE, TRADE
+          // —————————————————————————————
+          this.npcManager    = new NPCManager(this);
           this.npcManager.createFromObjects(objs);
 
-          this.questManager = new QuestManager(this);
-          this.dialogueTree = new DialogueTreeManager(this);
-          this.tradeManager = new TradeManager(this);
+          this.questManager  = new QuestManager(this);
+          this.dialogueTree  = new DialogueTreeManager(this);
+          this.tradeManager  = new TradeManager(this);
 
-// 1) Load each NPC’s main dialogue tree:
-this.npcManager.npcs.forEach(npc => {
-  import(`./assets/js/dialogues/${npc.npcId}-tree.js`)
-    .then(mod => {
-      this.dialogueTree.registerTree(npc.npcId, mod.default);
-      console.log(`Registered main tree for ${npc.npcId}`);
-    })
-    .catch(err => console.warn(`No dialogue module for ${npc.npcId}`, err));
-});
-
-// 2) Load each quest dialogue tree:
-this.questManager.quests.forEach(quest => {
-  if (!quest.dialogueFile) return;
-  import(`./assets/js/dialogues/${quest.dialogueFile}`)
-    .then(mod => {
-      this.dialogueTree.registerTree(quest.id, mod.default);
-      console.log(`Registered quest tree for ${quest.id}`);
-    })
-    .catch(err => console.warn(`Failed to load quest tree for ${quest.id}`, err));
-});
+          // 3a) Load each NPC’s main dialogue tree:
+          this.npcManager.npcs.forEach(npc => {
+            import(`./assets/js/dialogues/${npc.npcId}-tree.js`)
+              .then(mod => {
+                this.dialogueTree.registerTree(npc.npcId, mod.default);
+                console.log(`Registered main tree for ${npc.npcId}`);
+              })
+              .catch(err => console.warn(`No dialogue module for ${npc.npcId}`, err));
           });
 
-          // —――――――――――――――――――――――――――――――――――――
-          // 4) INTERACTIONS & EVENT LISTENERS
-          // —――――――――――――――――――――――――――――――――――――
+          // 3b) Load each quest dialogue tree:
+          this.questManager.quests.forEach(quest => {
+            if (!quest.dialogueFile) return;
+            import(`./assets/js/dialogues/${quest.dialogueFile}`)
+              .then(mod => {
+                this.dialogueTree.registerTree(quest.id, mod.default);
+                console.log(`Registered quest tree for ${quest.id}`);
+              })
+              .catch(err => console.warn(`Failed to load quest tree for ${quest.id}`, err));
+          });
 
-          // 4a) NPC conversations (press “F” near NPC to talk)
+          // —————————————————————————————
+          // 4) INTERACTIONS & EVENT LISTENERS
+          // —————————————————————————————
+
+          // 4a) NPC conversations: press “F” near NPC to talk
           this.npcManager.enableConversations('F', (npc) => {
             this.dialogueTree.startDialogue(npc.npcId);
           });
@@ -214,41 +212,30 @@ this.questManager.quests.forEach(quest => {
             this.scene.pause();
           });
 
-          // 4e) Press “E” to open the Equipment panel (if no chest‐open conflict).
-          //     By design, we now use “double-click” to open chests instead of “E”‐key:
+          // 4e) Press “E” to open the Equipment panel (no conflict with chests)
           this.input.keyboard.on('keydown-E', () => {
             this.openEquipment(this.playerInv, this.equipped);
             this.scene.pause();
           });
-
-          this.events.on('inventoryClosed', data => {
-  this.playerInv = data.playerInv;
-  if (data.chestInv !== null) {
-    // find whichever chest the player just interacted with 
-    // and update its .inventory = data.chestInv
-    // (you probably have a reference to that chest object when opening)
-  }
-  this.scene.resume();
-});
         }
 
         /**
-         * Create the eight walking animations for the player (down,left,right,up, etc.).
+         * Create the eight walking animations for the player (down, left, right, up, etc.).
          */
         createPlayerAnims() {
           [
-            ['down', 0,3],
-            ['left',12,15],
-            ['right',24,27],
-            ['up',36,39],
-            ['down-left',48,51],
-            ['down-right',60,63],
-            ['up-left',72,75],
-            ['up-right',84,87]
-          ].forEach(([k,s,e]) => {
+            ['down',       0,  3],
+            ['left',      12, 15],
+            ['right',     24, 27],
+            ['up',        36, 39],
+            ['down-left', 48, 51],
+            ['down-right',60, 63],
+            ['up-left',   72, 75],
+            ['up-right',  84, 87]
+          ].forEach(([k, s, e]) => {
             this.anims.create({
-              key: `walk-${k}`,
-              frames: this.anims.generateFrameNumbers('player',{ start:s, end:e }),
+              key:   `walk-${k}`,
+              frames: this.anims.generateFrameNumbers('player', { start: s, end: e }),
               frameRate: 8,
               repeat: -1
             });
@@ -256,7 +243,7 @@ this.questManager.quests.forEach(quest => {
         }
 
         /**
-         * Open the inventory UI.  chestInv may be null or an array reference.
+         * Open the inventory UI. chestInv may be null (meaning “just show player’s own inv”).
          */
         openInventory(playerInv, chestInv) {
           this.scene.launch('InventoryScene', { playerInv, chestInv });
@@ -271,33 +258,33 @@ this.questManager.quests.forEach(quest => {
 
         update(time, delta) {
           // Player movement logic:
-          const dt = delta / 1000;
+          const dt    = delta / 1000;
           const speed = 3;
           let moved = false;
-          let dir = this.lastDir || 'down';
+          let dir   = this.lastDir || 'down';
 
           let nx = this.playerIsoX;
           let ny = this.playerIsoY;
           const { W, A, S, D } = this.keys;
 
           if (W.isDown) {
-            ny -= speed*dt;
+            ny -= speed * dt;
             dir = 'up';
             moved = true;
             this.player.play('walk-up', true);
           } else if (S.isDown) {
-            ny += speed*dt;
+            ny += speed * dt;
             dir = 'down';
             moved = true;
             this.player.play('walk-down', true);
           }
           if (A.isDown) {
-            nx -= speed*dt;
+            nx -= speed * dt;
             dir = 'left';
             moved = true;
             this.player.play('walk-left', true);
           } else if (D.isDown) {
-            nx += speed*dt;
+            nx += speed * dt;
             dir = 'right';
             moved = true;
             this.player.play('walk-right', true);
@@ -316,26 +303,26 @@ this.questManager.quests.forEach(quest => {
 
           if (!moved) {
             this.player.anims.stop();
-            this.player.setFrame({ down:0, left:12, right:24, up:36 }[dir]);
+            this.player.setFrame({ down: 0, left: 12, right: 24, up: 36 }[dir]);
           }
           this.lastDir = dir;
 
-          // Update player’s on‐screen position:
-          const sx = (this.playerIsoX - this.playerIsoY)*(this.tileW/2) + this.offsetX;
-          const sy = (this.playerIsoX + this.playerIsoY)*(this.tileH/2) + this.offsetY;
+          // Update player’s isometric position on screen:
+          const sx = (this.playerIsoX - this.playerIsoY) * (this.tileW / 2) + this.offsetX;
+          const sy = (this.playerIsoX + this.playerIsoY) * (this.tileH / 2) + this.offsetY;
           this.player.setPosition(sx, sy).setDepth(sy);
         }
       }
 
       // 5) DIALOGUE / CHOICE / TRADE SCENES (unchanged)
       class DialogueScene extends Phaser.Scene {
-        constructor(){ super('DialogueScene'); }
-        init(data){ this.lines = data.lines || []; }
+        constructor() { super('DialogueScene'); }
+        init(data) { this.lines = data.lines || []; }
         create() {
           const w = this.scale.width, h = this.scale.height;
-          this.add.graphics().fillStyle(0x000000,0.7)
+          this.add.graphics().fillStyle(0x000000, 0.7)
             .fillRect(w/4, h/4, w/2, h/4);
-          this.lines.forEach((l,i) => {
+          this.lines.forEach((l, i) => {
             this.add.text(w/4 + 20, h/4 + 20 + i*24, l, { fontSize:'18px', fill:'#fff' });
           });
 
@@ -350,7 +337,7 @@ this.questManager.quests.forEach(quest => {
       }
 
       class ChoiceScene extends Phaser.Scene {
-        constructor(){ super('ChoiceScene'); }
+        constructor() { super('ChoiceScene'); }
         init(data) {
           this.question = data.question;
           this.options  = data.options || [];
@@ -362,12 +349,8 @@ this.questManager.quests.forEach(quest => {
             .fillRect(w/4, h/4, w/2, h/4);
           this.add.text(w/4 + 20, h/4 + 20, this.question, { fontSize:'18px', fill:'#fff' });
           this.options.forEach((opt, idx) => {
-            const txt = this.add.text(
-              w/4 + 40,
-              h/4 + 60 + idx*30,
-              opt,
-              { fontSize:'16px', fill:'#ff0' }
-            ).setInteractive();
+            const txt = this.add.text(w/4 + 40, h/4 + 60 + idx*30, opt, { fontSize:'16px', fill:'#ff0' })
+              .setInteractive();
             txt.on('pointerdown', () => {
               if (this.callback) this.callback(idx);
               this.scene.stop('ChoiceScene');
@@ -378,7 +361,7 @@ this.questManager.quests.forEach(quest => {
       }
 
       class TradeScene extends Phaser.Scene {
-        constructor(){ super('TradeScene'); }
+        constructor() { super('TradeScene'); }
         init(data) {
           this.npcId = data.npcId;
         }
@@ -387,10 +370,7 @@ this.questManager.quests.forEach(quest => {
           this.add.graphics()
             .fillStyle(0x000000, 0.8)
             .fillRect(w/4, h/4, w/2, h/2);
-          this.add.text(w/4 + 20, h/4 + 20, `Trading with ${this.npcId}`, {
-            fontSize:'18px',
-            fill:'#fff'
-          });
+          this.add.text(w/4 + 20, h/4 + 20, `Trading with ${this.npcId}`, { fontSize:'18px', fill:'#fff' });
           this.input.keyboard.once('keydown-ESC', () => {
             this.scene.stop('TradeScene');
             this.scene.resume('Main');
