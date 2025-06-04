@@ -11,7 +11,7 @@ export default {
           text: 'Do you have a quest for me?',
           action: scene => {
             console.log('Merchant choice “quest” clicked');
-            scene.questManager.startQuest('merchant1Quest');  // must match exactly
+            scene.questManager.startQuest('merchant1');  // must match exactly
           },
           next: null
         },
