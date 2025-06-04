@@ -1,12 +1,9 @@
-// assets/js/dialogues/npc2-tree.js
-// Dialogue tree module for NPC with id "npc2"
-
 export default {
   start: 'greeting',
   nodes: {
     greeting: {
       type: 'text',
-      lines: ['Hello traveler!'],
+      lines: [ 'Hello traveler!' ],
       next: 'offerQuest'
     },
     offerQuest: {
@@ -15,25 +12,26 @@ export default {
       options: [
         {
           text: 'Yes, of course!',
-          action: (scene) => {
-          scene.questManager.accept('quest2');
-          scene.openInventory(scene.playerInv, null);
-        },
+          action: function() {
+            console.log('npc2Quest “Yes” clicked');
+            // Here, `this` is the Scene, so:
+            this.questManager.accept('quest2');
+          },
           next: 'questAccepted'
         },
         {
-          text: 'Not right now',
+          text: 'Not right now.',
           next: 'farewell'
         }
       ]
     },
     questAccepted: {
       type: 'text',
-      lines: ['Thank you! Here are 5 coins.']
+      lines: [ 'Thank you! 5 coins have been added to your inventory.' ]
     },
     farewell: {
       type: 'text',
-      lines: ['Safe travels!']
+      lines: [ 'Safe travels!' ]
     }
   }
 };
