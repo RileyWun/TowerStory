@@ -1,32 +1,39 @@
 // assets/js/dialogues/merchant1-quest-tree.js
+
 export default {
-  start: 'questPrompt',
+  start: 'greeting',
   nodes: {
-    questPrompt: {
+    greeting: {
+      type: 'text',
+      lines: [ 'I’m running low on potions—could you bring me 5 healing herbs?' ],
+      next: 'offerQuest'
+    },
+    offerQuest: {
       type: 'choice',
-      question: 'I’m running low on potions—could you bring me 5 healing herbs?',
+      question: 'Will you accept this quest?',
       options: [
         {
-          text: 'Sure, I’ll get them.',
-          action: scene => {
-            console.log('Merchant quest accepted');
-            scene.questManager.accept('merchant1Quest');
+          text: 'Absolutely, I’ll get them for you.',
+          action: () => {
+            console.log('merchant1Quest “Yes” clicked');
+            // This must match the exact quest ID you used in quest-manager.js:
+            this.scene.questManager.accept('merchant1Quest');
           },
-          next: 'accepted'
+          next: 'questAccepted'
         },
         {
-          text: 'Not right now.',
-          next: 'declined'
+          text: 'Sorry, I’m busy right now.',
+          next: 'farewell'
         }
       ]
     },
-    accepted: {
+    questAccepted: {
       type: 'text',
-      lines: ['Thank you—and here’s your potion reward!']
+      lines: [ 'Thank you! I’ll look forward to seeing you again.' ]
     },
-    declined: {
+    farewell: {
       type: 'text',
-      lines: ['Very well. Let me know if you change your mind.']
+      lines: [ 'Safe journeys, then.' ]
     }
   }
 };
