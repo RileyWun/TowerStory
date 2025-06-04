@@ -13,7 +13,7 @@ export default {
       question: 'Will you accept this quest?',
       options: [
         {
-          text: 'Yes, I will accept this quest',
+          text: 'Yes, of course!',
           action: () => {
             console.log('NPC2 quest “Yes” clicked');
             this.scene.questManager.accept('quest2');
