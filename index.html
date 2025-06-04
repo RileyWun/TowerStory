@@ -314,27 +314,44 @@
         }
       }
 
-      // 5) DIALOGUE / CHOICE / TRADE SCENES (unchanged)
+      // 5) DIALOGUE / CHOICE / TRADE SCENES
       class DialogueScene extends Phaser.Scene {
-        constructor() { super('DialogueScene'); }
-        init(data) { this.lines = data.lines || []; }
-        create() {
-          const w = this.scale.width, h = this.scale.height;
-          this.add.graphics().fillStyle(0x000000, 0.7)
-            .fillRect(w/4, h/4, w/2, h/4);
-          this.lines.forEach((l, i) => {
-            this.add.text(w/4 + 20, h/4 + 20 + i*24, l, { fontSize:'18px', fill:'#fff' });
-          });
+  constructor() { super('DialogueScene'); }
+  init(data) { this.lines = data.lines || []; }
+  create() {
+    const w = this.scale.width, h = this.scale.height;
 
-          const closeDialog = () => {
-            this.scene.stop('DialogueScene');
-            this.scene.resume('Main');
-            this.scene.get('Main').events.emit('dialogueClosed');
-          };
-          this.input.keyboard.once('keydown-ESC', closeDialog);
-          this.input.once('pointerdown', closeDialog);
+    // semi‐transparent backdrop
+    this.add.graphics()
+      .fillStyle(0x000000, 0.7)
+      .fillRect(w/4, h/4, w/2, h/4);
+
+    // wrap width = box width minus padding (here: 40px total)
+    const wrapWidth = (w/2) - 40;
+
+    // draw each line with wordWrap enabled
+    this.lines.forEach((l, i) => {
+      this.add.text(
+        w/4 + 20,             // x (inside box, with 20px padding)
+        h/4 + 20 + i*24,      // y
+        l,                    // the full string (no need to split manually)
+        {
+          fontSize: '18px',
+          fill: '#fff',
+          wordWrap: { width: wrapWidth }
         }
-      }
+      );
+    });
+
+    const closeDialog = () => {
+      this.scene.stop('DialogueScene');
+      this.scene.resume('Main');
+      this.scene.get('Main').events.emit('dialogueClosed');
+    };
+    this.input.keyboard.once('keydown-ESC', closeDialog);
+    this.input.once('pointerdown', closeDialog);
+  }
+}
 
       class ChoiceScene extends Phaser.Scene {
         constructor() { super('ChoiceScene'); }
