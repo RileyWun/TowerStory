@@ -468,6 +468,9 @@ export class InventoryScene extends Phaser.Scene {
           .setInteractive({ draggable: true });
         icon.setData('from', 'chest');
         icon.setData('index', i);
+        icon.on('dragstart', () => this.children.bringToTop(icon));
+        icon.on('drag', (pointer, dragX, dragY) => { icon.x = dragX; icon.y = dragY; });
+        icon.on('dragend', (pointer, dragX, dragY) => { this.onDragEndItem(icon, dragX, dragY); });
         this.group.add(icon);
         if (item.count > 1) {
           const countText = this.add.text(
