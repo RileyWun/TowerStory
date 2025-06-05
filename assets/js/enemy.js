@@ -1,193 +1,171 @@
 // assets/js/enemy.js
 
-export class Enemy extends Phaser.GameObjects.Sprite {
+export class Slime extends Phaser.GameObjects.Container {
   /**
-   * @param {Phaser.Scene} scene 
-   * @param {number} isoX    – isometric X (tile‐coord)
-   * @param {number} isoY    – isometric Y (tile‐coord)
-   * @param {string} texture – key of loaded texture (e.g. "slime")
-   * @param {number} [level=1]
+   * @param {Phaser.Scene} scene
+   * @param {number} isoX   – isometric X coordinate
+   * @param {number} isoY   – isometric Y coordinate
+   * @param {string} texture – key for the slime image
+   * @param {number} level   – integer level (affects HP, damage, loot)
    */
   constructor(scene, isoX, isoY, texture, level = 1) {
-    // Convert (isoX, isoY) → screen (x, y)
-    const tileW = scene.tileW,
-          tileH = scene.tileH;
-    const screenX = (isoX - isoY) * (tileW / 2) + scene.offsetX;
-    const screenY = (isoX + isoY) * (tileH / 2) + scene.offsetY;
+    super(scene);
+    this.scene = scene;
+    this.isoX = isoX;
+    this.isoY = isoY;
+    this.level = level;
 
-    super(scene, screenX, screenY, texture);
-    scene.add.existing(this);
-    scene.physics.add.existing(this);
+    // Basic stats:
+    this.maxHp = 5 * level;
+    this.hp    = this.maxHp;
+    this.speed = 50 + (level * 10); // px/sec
+    this.state = 'idle';
 
-    this.scene   = scene;
-    this.isoX    = isoX;
-    this.isoY    = isoY;
-    this.level   = level;
-    this.maxHp   = 5 * level;
-    this.hp      = this.maxHp;
-    this.speed   = 1 + 0.2 * level;
-    this.state   = 'idle';
+    // Convert isometric coords → screen (x, y):
+    const px = (isoX - isoY) * (scene.tileW / 2) + scene.offsetX;
+    const py = (isoX + isoY) * (scene.tileH / 2) + scene.offsetY;
 
-    this.setOrigin(0.5, 1);
-    this.setDepth(this.y);
+    // Add the slime sprite:
+    this.sprite = scene.add.sprite(0, 0, texture);
+    this.sprite.setOrigin(0.5, 1);
+    this.add(this.sprite);
 
-    // Add a container to hold health bar + name tag
-    this.uiContainer = scene.add.container(this.x, this.y);
-    this.uiContainer.setDepth(this.depth + 1);
-
-    // Health bar background
-    this.healthBarBg = scene.add.rectangle(0, -this.height - 10, 40, 6, 0x000000)
+    // Health bar graphics:
+    this.barBg = scene.add.rectangle(0, -this.sprite.height - 10, 40, 6, 0x000000, 0.6)
       .setOrigin(0.5, 0.5);
-    // Health bar foreground (red)
-    this.healthBar = scene.add.rectangle(-20, -this.height - 10, 40, 6, 0xff0000)
-      .setOrigin(0, 0.5);
+    this.barFill = scene.add.rectangle(
+      -20,
+      -this.sprite.height - 10,
+      40,
+      6,
+      0xff0000,
+      1
+    ).setOrigin(0, 0.5);
+    this.add(this.barBg);
+    this.add(this.barFill);
 
-    // Name‐level text above health bar
+    // Name and level text:
     this.nameTag = scene.add.text(
-      0,
-      -this.height - 22,
-      `Slime – Lvl ${this.level}`,
-      {
-        font: '12px Arial',
-        fill: '#ffffff',
-        stroke: '#000000',
-        strokeThickness: 2
-      }
-    ).setOrigin(0.5, 1);
+      0, 
+      -this.sprite.height - 22,
+      `Slime - Lvl ${level}`,
+      { fontSize:'12px', fill:'#fff', stroke:'#000', strokeThickness:2 }
+    ).setOrigin(0.5, 0.5);
+    this.add(this.nameTag);
 
-    // Initially hide UI
-    this.uiContainer.add([ this.healthBarBg, this.healthBar, this.nameTag ]);
-    this.uiContainer.setVisible(false);
+    // Container position & depth:
+    this.setPosition(px, py);
+    this.setDepth(py);
 
-    // Choose an initial random wander direction
-    this.dirX = Phaser.Math.Between(-1, 1);
-    this.dirY = Phaser.Math.Between(-1, 1);
+    // Enable physics body for overlap checks & movement:
+    scene.physics.world.enable(this);
+    this.body.setSize( this.sprite.width, this.sprite.height * 0.5 );
+    this.body.setOffset( -this.sprite.width/2, -this.sprite.height );
 
-    // Periodically pick a new random direction (every 1–2 seconds)
-    scene.time.addEvent({
-      delay: Phaser.Math.Between(1000, 2000),
-      callback: () => {
-        if (this.state !== 'dead') {
-          this.dirX = Phaser.Math.Between(-1, 1);
-          this.dirY = Phaser.Math.Between(-1, 1);
-        }
-      },
-      loop: true
-    });
-
-    // Allow collisions with world bounds
-    this.body.setCollideWorldBounds(true);
+    // Add to scene:
+    scene.add.existing(this);
   }
 
   /**
-   * Reduce HP, show UI and trigger death if hp ≤ 0.
+   * Called by MainScene.update() each tick.
+   * Contains simple wander + follow logic.
+   */
+  update(time, delta) {
+    const player = this.scene.player;
+    if (!player) return;
+
+    const distToPlayer = Phaser.Math.Distance.Between(
+      this.x, this.y, player.x, player.y
+    );
+
+    const aggroRange = 100;
+    if (distToPlayer < aggroRange && this.state !== 'dead') {
+      // Pursue player:
+      this.state = 'chase';
+      this.scene.physics.moveToObject(
+        this, 
+        player, 
+        this.speed
+      );
+    } else if (this.state === 'chase') {
+      // Retreat if too close:
+      if (distToPlayer < 30) {
+        // Move away from player
+        const angle = Phaser.Math.Angle.Between(player.x, player.y, this.x, this.y);
+        this.body.setVelocity(
+          Math.cos(angle) * this.speed,
+          Math.sin(angle) * this.speed
+        );
+      } else {
+        // Stop if out of aggro range
+        this.body.setVelocity(0);
+        this.state = 'idle';
+      }
+    } else {
+      // Random wander:
+      if (this.state === 'idle') {
+        if (!this.idleTimer || time > this.idleTimer) {
+          this.state = 'wander';
+          this.idleTimer = time + Phaser.Math.Between(2000, 5000);
+          this.wanderAngle = Phaser.Math.FloatBetween(0, Math.PI*2);
+          this.wanderDuration = Phaser.Math.Between(1000, 2000);
+        }
+      } else if (this.state === 'wander') {
+        // Move in wanderAngle direction for wanderDuration:
+        this.body.setVelocity(
+          Math.cos(this.wanderAngle) * this.speed * 0.5,
+          Math.sin(this.wanderAngle) * this.speed * 0.5
+        );
+        if (time > this.idleTimer - (this.wanderDuration || 0)) {
+          this.state = 'idle';
+          this.body.setVelocity(0);
+        }
+      }
+    }
+
+    // Update depth as Y changes:
+    this.setDepth(this.y);
+
+    // Update health bar length:
+    const hpPct = Phaser.Math.Clamp(this.hp / this.maxHp, 0, 1);
+    this.barFill.width = 40 * hpPct;
+  }
+
+  /**
+   * Called externally when the Slime takes damage.
    */
   takeDamage(amount) {
-    if (this.state === 'dead') {
-      return;
-    }
+    if (this.state === 'dead') return;
 
     this.hp -= amount;
     if (this.hp <= 0) {
       this.hp = 0;
-      this.state = 'dead';
-      this.uiContainer.setVisible(true);
-      this.updateHealthBar();
       this.playDeath();
-    } else {
-      // Show health + name when hit
-      this.uiContainer.setVisible(true);
-      this.updateHealthBar();
-
-      // Auto‐hide UI after 1.5 seconds (if still alive)
-      this.scene.time.delayedCall(1500, () => {
-        if (this.state !== 'dead') {
-          this.uiContainer.setVisible(false);
-        }
-      });
     }
   }
 
   /**
-   * Update health bar’s width to match current HP.
-   */
-  updateHealthBar() {
-    const pct = Phaser.Math.Clamp(this.hp / this.maxHp, 0, 1);
-    this.healthBar.width = 40 * pct;
-  }
-
-  /**
-   * Called by MainScene.update(…) each frame.
-   */
-  update(time, delta) {
-    if (this.state === 'dead') {
-      return;
-    }
-
-    // Compute Manhattan distance to player in iso coords
-    const px = this.scene.playerIsoX,
-          py = this.scene.playerIsoY;
-    const dx = this.isoX - px,
-          dy = this.isoY - py;
-    const manDist = Math.abs(dx) + Math.abs(dy);
-
-    if (manDist < 2) {
-      // ATTACK: move toward the player
-      this.state = 'attack';
-      const moveX = dx < 0 ? 1 : dx > 0 ? -1 : 0;
-      const moveY = dy < 0 ? 1 : dy > 0 ? -1 : 0;
-      this.isoX += moveX * this.speed * (delta / 1000);
-      this.isoY += moveY * this.speed * (delta / 1000);
-    } else {
-      // WANDER: random direction (even if far from the player)
-      this.state = 'idle';
-      this.isoX += this.dirX * this.speed * (delta / 1000);
-      this.isoY += this.dirY * this.speed * (delta / 1000);
-
-      // Bounce at map edges (keep inside bounds)
-      if (
-        this.isoX < 0 || this.isoX > this.scene.mapW ||
-        this.isoY < 0 || this.isoY > this.scene.mapH
-      ) {
-        this.dirX = Phaser.Math.Between(-1, 1);
-        this.dirY = Phaser.Math.Between(-1, 1);
-      }
-    }
-
-    // Convert iso coords → screen coords
-    const tileW = this.scene.tileW,
-          tileH = this.scene.tileH;
-    this.x = (this.isoX - this.isoY) * (tileW / 2) + this.scene.offsetX;
-    this.y = (this.isoX + this.isoY) * (tileH / 2) + this.scene.offsetY;
-    this.setDepth(this.y);
-
-    // Move the UI container directly above the sprite
-    this.uiContainer
-      .setPosition(this.x, this.y)
-      .setDepth(this.depth + 1);
-  }
-
-  /**
-   * Fade out on death, then drop loot and destroy.
+   * Fade out, drop 2–5 coins, then destroy everything.
    */
   playDeath() {
-    const sceneRef = this.scene;
+    this.state = 'dead';
+    this.body.setVelocity(0, 0);
+    this.body.enable = false;
 
-    // Fade both sprite and its UI container
-    sceneRef.tweens.add({
-      targets: [ this, this.uiContainer ],
+    this.scene.tweens.add({
+      targets: [ this, this.barBg, this.barFill, this.nameTag ],
       alpha: 0,
       duration: 300,
       onComplete: () => {
-        // Drop 2–5 coins at isoX/isoY
+        // Drop 2–5 coins at this isoX, isoY:
         const dropCount = Phaser.Math.Between(2, 5);
-        sceneRef.spawnLoot(
-          this.isoX,
-          this.isoY,
-          'coin',
-          dropCount
-        );
-        this.uiContainer.destroy();
+        this.scene.spawnLoot(this.isoX, this.isoY, 'coin', dropCount);
+
+        // Destroy all sub‐objects:
+        this.barBg.destroy();
+        this.barFill.destroy();
+        this.nameTag.destroy();
+        this.sprite.destroy();
         this.destroy();
       }
     });
