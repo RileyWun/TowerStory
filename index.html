@@ -4,13 +4,7 @@
   <meta charset="UTF-8" />
   <title>TowerStory</title>
   <style>
-    html, body {
-      height:100%;
-      width:100%;
-      margin:0;
-      padding:0;
-      background: url('assets/images/background.png') center/cover no-repeat;
-    }
+    html, body { height:100%; width:100%; margin:0; padding:0; background: url('assets/images/background.png') center/cover no-repeat; }
     body {
       display:grid;
       grid-template-rows:80px auto 60px;
@@ -32,7 +26,7 @@
   <div id="header"></div>
   <div id="sidebar-left"></div>
   <div id="game-container"></div>
-  <div #sidebar-right"></div>
+  <div id="sidebar-right"></div>
   <div id="footer"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.min.js"></script>
@@ -41,137 +35,153 @@
     import { QuestManager } from './assets/js/quest-manager.js';
     import { DialogueTreeManager } from './assets/js/dialogue-tree-manager.js';
     import { TradeManager } from './assets/js/trade-manager.js';
+    import { Slime } from './assets/js/enemy.js'; // <-- our Slime class
 
     window.addEventListener('load', () => {
+
+      // --- BootScene -----------------------------------
       class BootScene extends Phaser.Scene {
         constructor(){ super('Boot'); }
         create(){ this.scene.start('Preload'); }
       }
 
+      // --- PreloadScene --------------------------------
       class PreloadScene extends Phaser.Scene {
         constructor(){ super('Preload'); }
         preload(){
-          this.load.tilemapTiledJSON('room', 'assets/maps/room.json');
-          this.load.spritesheet('tileset', 'assets/tiles/tileset.png', { frameWidth:38, frameHeight:38 });
-          this.load.spritesheet('player','assets/player/Chibi-character-template_skin0_part2_by_AxulArt.png',{ frameWidth:32, frameHeight:32 });
+          // tilemap and tileset
+          this.load.tilemapTiledJSON('room','assets/maps/room.json');
+          this.load.spritesheet('tileset','assets/tiles/tileset.png',{ frameWidth:38,frameHeight:38 });
+
+          // player spritesheet
+          this.load.spritesheet('player','assets/player/Chibi-character-template_skin0_part2_by_AxulArt.png',{ frameWidth:32,frameHeight:32 });
+
+          // objects & icons
           this.load.image('chest','assets/objects/chest.png');
           this.load.image('npc','assets/objects/npc.png');
           this.load.image('potion','assets/icons/potion.png');
           this.load.image('sword','assets/icons/sword.png');
           this.load.image('coin','assets/icons/coin.png');
+          this.load.image('slime','assets/enemies/slime.png'); // placeholder slime
+
+          // any UI assets (frames, backgrounds) go here...
         }
         create(){ this.scene.start('Main'); }
       }
 
+      // --- MainScene -----------------------------------
       class MainScene extends Phaser.Scene {
         constructor(){ super('Main'); }
-
         create(){
-          // 1) Load and draw the isometric tilemap
+          // Create and render the isometric tilemap
           const map = this.make.tilemap({ key:'room' });
-          map.addTilesetImage('tileset','tileset', map.tileWidth, map.tileHeight);
+          map.addTilesetImage('tileset','tileset',map.tileWidth,map.tileHeight);
           this.tileW = map.tileWidth;
           this.tileH = map.tileHeight;
-          this.mapW  = map.width;
-          this.mapH  = map.height;
+          this.mapW = map.width;
+          this.mapH = map.height;
           this.offsetX = this.scale.width / 2;
-          this.offsetY = (this.scale.height - (this.mapW + this.mapH) * (this.tileH/2)) / 2 + this.tileH/2;
+          // offsetY so that the “diamond” fits between header/footer
+          this.offsetY = (
+            (this.scale.height - (this.mapW + this.mapH) * (this.tileH / 2)) / 2
+          ) + (this.tileH / 2);
 
-          // Floor data & collision data
-          this.floorData = map.getLayer('Floor').data.map(r => r.map(t => t.index > 0));
-          this.collisionData = map.getLayer('Collision').data.map(r => r.map(t => t.index > 0));
+          // draw floor
+          this.floorData = map.getLayer('Floor').data.map(row => row.map(cell => cell.index > 0));
+          this.collisionData = map.getLayer('Collision').data.map(row => row.map(cell => cell.index > 0));
           map.getLayer('Floor').data.forEach((row, y) => {
             row.forEach((t, x) => {
               if (t.index > 0) {
                 const frame = t.index - 1;
-                const sx = (x - y) * (this.tileW/2) + this.offsetX;
-                const sy = (x + y) * (this.tileH/2) + this.offsetY;
+                const sx = (x - y) * (this.tileW / 2) + this.offsetX;
+                const sy = (x + y) * (this.tileH / 2) + this.offsetY;
                 this.add.image(sx, sy, 'tileset', frame).setDepth(sy);
               }
             });
           });
 
-          // Objects & Chests
+          // read objects
           const objs = map.getObjectLayer('Objects').objects;
           const spawn = objs.find(o => o.name === 'PlayerSpawn');
 
+          // Player inventory & chests
           this.playerInv = [
-            { iconKey:'potion', count:3 },
-            { iconKey:'sword',  count:1 }
+            { iconKey: 'potion', count: 3 },
+            { iconKey: 'sword', count: 1 },
+            { iconKey: 'coin', count: 0 }
           ];
           this.chests = [];
+
           objs.forEach(o => {
-            const ix = o.x / this.tileW, iy = o.y / this.tileH;
-            const sx = (ix - iy) * (this.tileW/2) + this.offsetX;
-            const sy = (ix + iy) * (this.tileH/2) + this.offsetY;
+            const ix = o.x / this.tileW;
+            const iy = o.y / this.tileH;
+            const sx = (ix - iy) * (this.tileW / 2) + this.offsetX;
+            const sy = (ix + iy) * (this.tileH / 2) + this.offsetY;
+
             if (o.type === 'Chest') {
               const chest = this.add.image(sx, sy, 'chest')
-                .setOrigin(0.5,1)
+                .setOrigin(0.5, 1)
                 .setDepth(sy)
                 .setInteractive();
               chest.inventory = [];
-              chest.on('pointerdown', () => this.openInventory(this.playerInv, chest.inventory));
+              chest.on('pointerdown', () => {
+                this.openInventory(this.playerInv, chest.inventory);
+              });
               this.chests.push(chest);
             }
           });
 
-          // 2) Create the player, enable physics, set depth
+          // Create the player sprite
           this.player = this.add.sprite(0, 0, 'player').setOrigin(0.5, 1);
-          this.physics.add.existing(this.player);
-          this.player.body.setSize(16, 16).setOffset(8, 16);
-
           this.createPlayerAnims();
-
           this.playerIsoX = spawn.x / this.tileW;
           this.playerIsoY = spawn.y / this.tileH;
-          const px = (this.playerIsoX - this.playerIsoY) * (this.tileW/2) + this.offsetX;
-          const py = (this.playerIsoX + this.playerIsoY) * (this.tileH/2) + this.offsetY;
+          const px = (this.playerIsoX - this.playerIsoY) * (this.tileW / 2) + this.offsetX;
+          const py = (this.playerIsoX + this.playerIsoY) * (this.tileH / 2) + this.offsetY;
           this.player.setPosition(px, py).setDepth(py);
 
+          // Movement keys
           this.keys = this.input.keyboard.addKeys('W,A,S,D');
           this.cameras.main.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
           this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
 
-          // 3) Create a physics group for dropped loot
-          this.lootGroup = this.physics.add.group();
-
-          // 4) Overlap: player picks up coin on overlap
-          this.physics.add.overlap(
-            this.player,
-            this.lootGroup,
-            this.collectLoot,
-            null,
-            this
-          );
-
-          // 5) Managers
+          // Managers
           this.npcManager = new NPCManager(this);
           this.npcManager.createFromObjects(objs);
+
           this.questManager = new QuestManager(this);
           this.dialogueTree = new DialogueTreeManager(this);
-          this.tradeManager   = new TradeManager(this);
+          this.tradeManager = new TradeManager(this);
 
-          // 6) Dynamically load each NPC’s main dialogue tree
+          // 1) Load each NPC's main dialogue tree:
           this.npcManager.npcs.forEach(npc => {
             import(`./assets/js/dialogues/${npc.npcId}-tree.js`)
-              .then(mod => this.dialogueTree.registerTree(npc.npcId, mod.default))
+              .then(mod => {
+                this.dialogueTree.registerTree(npc.npcId, mod.default);
+                console.log(`Registered main tree for ${npc.npcId}`);
+              })
               .catch(err => console.warn(`No dialogue module for ${npc.npcId}`, err));
           });
 
-          // 7) Dynamically load each quest dialogue tree
+          // 2) Load each quest dialogue tree (only for quests that provided a dialogueFile)
           this.questManager.quests.forEach(quest => {
             if (!quest.dialogueFile) return;
             import(`./assets/js/dialogues/${quest.dialogueFile}`)
-              .then(mod => this.dialogueTree.registerTree(quest.id, mod.default))
-              .catch(err => console.warn(`Failed to load quest tree for ${quest.id}`, err));
+              .then(mod => {
+                this.dialogueTree.registerTree(quest.id, mod.default);
+                console.log(`Registered quest tree for ${quest.id}`);
+              })
+              .catch(err => {
+                console.warn(`Failed to load quest tree for ${quest.id}`, err);
+              });
           });
 
-          // 8) Enable conversation (press “F” or click NPC)
-          this.npcManager.enableConversations('F', npc =>
-            this.dialogueTree.startDialogue(npc.npcId)
-          );
+          // Conversation & interactions
+          this.npcManager.enableConversations('F', npc => {
+            this.dialogueTree.startDialogue(npc.npcId);
+          });
 
-          // 9) “I” opens inventory, “E” opens chest if nearby
+          // Inventory & chest keys
           this.events.on('inventoryClosed', data => {
             this.playerInv = data.playerInv;
             this.scene.resume();
@@ -186,64 +196,125 @@
             });
           });
 
-          // 10) Revert attack to mouse‐click: on pointerdown, deal 1 damage to nearest in‐range enemy
+          // Enemies Group & Spawning
+          this.enemies = this.add.group();
+          // Spawn a single slime (for demonstration) at tile (5,5) in isometric coords
+          const slime = new Slime(this, 5, 5, 4); // level 4 slime at iso (5,5)
+          this.enemies.add(slime);
+
+          // Loot group (for coins dropped)
+          this.lootGroup = this.add.group();
+
+          // Pickup coin on overlap
+          this.physics.world.enable(this.lootGroup);
+          this.physics.world.enable(this.player);
+          this.physics.add.overlap(this.player, this.lootGroup, (playerSprite, lootSprite) => {
+            const loot = lootSprite.getData('lootData');
+            if (loot && loot.iconKey === 'coin') {
+              // add to player inventory
+              const stack = this.playerInv.find(i => i.iconKey === 'coin');
+              const amount = loot.count;
+              if (stack) stack.count += amount;
+              else this.playerInv.push({ iconKey: 'coin', count: amount });
+            }
+            lootSprite.destroy();
+          });
+
+          // Allow pointerdown for attacking
           this.input.on('pointerdown', pointer => {
-            // find closest enemy in a radius of 50 pixels
-            let nearest = null, dist = 50;
-            this.npcManager.enemies.forEach(e => {
-              const dx = e.x - this.player.x;
-              const dy = e.y - this.player.y;
-              const d  = Math.hypot(dx, dy);
-              if (d <= dist) {
-                dist = d;
-                nearest = e;
-              }
-            });
-            if (nearest) {
-              nearest.takeDamage(1);
+            this.playerAttack(pointer);
+          });
+        }
+
+        // --- Player Attack (only within range) ----------------
+        playerAttack(pointer) {
+          // convert pointer.x,y to world coords
+          const worldPoint = pointer.positionToCamera(this.cameras.main);
+          const px = this.player.x;
+          const py = this.player.y;
+          // find any enemy within attack radius (e.g. 50 px)
+          this.enemies.getChildren().forEach(enemy => {
+            const dist = Phaser.Math.Distance.Between(px, py, enemy.x, enemy.y);
+            if (dist < 50) {
+              // play player attack anim (one frame)
+              this.player.play('attack-down', true);
+              enemy.takeDamage(1);
             }
           });
         }
 
-        createPlayerAnims() {
+        // --- Spawn loot from scene (so Slime can call) ----------
+        spawnLoot(worldX, worldY, iconKey, count) {
+          const drop = this.add.image(worldX, worldY, iconKey)
+            .setScale(1)
+            .setInteractive();
+          drop.setData('lootData', { iconKey, count });
+          this.lootGroup.add(drop);
+          this.physics.world.enable(drop);
+          drop.body.setAllowGravity(false);
+        }
+
+        // --- Player animations setup ---------------------------
+        createPlayerAnims(){
           [
-            ['down', 0, 3], ['left',12, 15],
-            ['right',24,27], ['up', 36,39],
-            ['down-left',48,51], ['down-right',60,63],
-            ['up-left',72,75], ['up-right',84,87]
-          ].forEach(([k, s, e]) => {
+            ['down', 0,3],
+            ['left', 12,15],
+            ['right', 24,27],
+            ['up',36,39]
+          ].forEach(([k,s,e]) => {
             this.anims.create({
               key: `walk-${k}`,
-              frames: this.anims.generateFrameNumbers('player', { start: s, end: e }),
+              frames: this.anims.generateFrameNumbers('player', { start:s, end:e }),
               frameRate: 8,
               repeat: -1
             });
           });
+          // A simple “attack” frame (you may need to add more frames in your spritesheet)
+          this.anims.create({
+            key: 'attack-down',
+            frames: [{ key:'player', frame:0 }], // placeholder
+            frameRate: 1,
+            repeat: 0
+          });
         }
 
-        update(time, delta) {
-          const dt = delta / 1000, spd = 3;
-          let moved = false, dir = this.lastDir || 'down';
-          let nx = this.playerIsoX, ny = this.playerIsoY;
-          const { W, A, S, D } = this.keys;
+        // --- Inventory & Dialogue/Choice scenes ----------------
+        openInventory(playerInv, chestInv){
+          this.scene.pause();
+          this.scene.launch('InventoryScene', { playerInv, chestInv });
+        }
+        closeInventory(){
+          this.scene.stop('InventoryScene');
+          this.scene.resume();
+        }
+        openDialogue(lines){
+          this.scene.pause();
+          this.scene.launch('DialogueScene', { lines });
+        }
+        openChoice(question, options, callback){
+          this.scene.pause();
+          this.scene.launch('ChoiceScene', { question, options, callback });
+        }
 
-          if (W.isDown){
-            ny -= spd * dt; dir = 'up'; moved = true; this.player.play('walk-up', true);
-          } else if (S.isDown){
-            ny += spd * dt; dir = 'down'; moved = true; this.player.play('walk-down', true);
-          }
-          if (A.isDown){
-            nx -= spd * dt; dir = 'left'; moved = true; this.player.play('walk-left', true);
-          } else if (D.isDown){
-            nx += spd * dt; dir = 'right'; moved = true; this.player.play('walk-right', true);
-          }
+        update(time, delta){
+          const dt = delta / 1000;
+          const spd = 3;
+          let moved = false;
+          let dir = this.lastDir || 'down';
+          let nx = this.playerIsoX;
+          let ny = this.playerIsoY;
+          const { W,A,S,D } = this.keys;
+
+          if (W.isDown) { ny -= spd*dt; dir='up'; moved=true; this.player.play('walk-up', true); }
+          else if (S.isDown) { ny += spd*dt; dir='down'; moved=true; this.player.play('walk-down', true); }
+          if (A.isDown) { nx -= spd*dt; dir='left'; moved=true; this.player.play('walk-left', true); }
+          else if (D.isDown) { nx += spd*dt; dir='right'; moved=true; this.player.play('walk-right', true); }
 
           const tx = Math.floor(nx), ty = Math.floor(ny);
           if (
             nx >= 0 && nx < this.mapW &&
             ny >= 0 && ny < this.mapH &&
-            this.floorData[ty][tx] &&
-            !this.collisionData[ty][tx]
+            this.floorData[ty][tx] && !this.collisionData[ty][tx]
           ) {
             this.playerIsoX = nx;
             this.playerIsoY = ny;
@@ -255,91 +326,28 @@
           }
           this.lastDir = dir;
 
+          // update player world position
           const sx = (this.playerIsoX - this.playerIsoY) * (this.tileW/2) + this.offsetX;
           const sy = (this.playerIsoX + this.playerIsoY) * (this.tileH/2) + this.offsetY;
           this.player.setPosition(sx, sy).setDepth(sy);
         }
-
-        /**
-         * Spawn `count` copies of a given loot key at iso coords.
-         */
-        spawnLoot(isoX, isoY, key, count) {
-          for (let i = 0; i < count; i++) {
-            // random jitter within +-0.3 tiles
-            const rx = isoX + Phaser.Math.FloatBetween(-0.3, 0.3);
-            const ry = isoY + Phaser.Math.FloatBetween(-0.3, 0.3);
-            const px = (rx - ry) * (this.tileW/2) + this.offsetX;
-            const py = (rx + ry) * (this.tileH/2) + this.offsetY;
-
-            const coin = this.lootGroup.create(px, py, key)
-              .setOrigin(0.5, 1)
-              .setDepth(py)
-              .setScale(1)
-              .refreshBody();
-
-            // small up/down tween so it’s obvious
-            this.tweens.add({
-              targets: coin,
-              y: coin.y - 4,
-              duration: 400,
-              yoyo: true,
-              repeat: -1
-            });
-          }
-        }
-
-        /**
-         * Called when player overlaps any coin sprite.
-         */
-        collectLoot(playerSprite, lootSprite) {
-          // Destroy the coin sprite
-          lootSprite.destroy();
-
-          // Add 1 coin to playerInv
-          const inv = this.playerInv;
-          const existing = inv.find(i => i.iconKey === 'coin');
-          if (existing) {
-            existing.count += 1;
-          } else {
-            inv.push({ iconKey:'coin', count:1 });
-          }
-
-          // Fire an event so InventoryScene (if open) can redraw
-          this.events.emit('inventoryUpdated', { playerInv: inv });
-        }
-
-        openInventory(playerInv, chestInv) {
-          this.scene.pause();
-          this.scene.launch('InventoryScene', { playerInv: playerInv, chestInv: chestInv });
-        }
-
-        closeInventory() {
-          this.scene.stop('InventoryScene');
-          this.scene.resume();
-        }
-
-        openChoice(question, options, callback) {
-          this.scene.pause();
-          this.scene.launch('ChoiceScene', { question, options, callback });
-        }
       }
 
-      // Dialogue Scene
+      // --- Dialogue Scene --------------------------------------
       class DialogueScene extends Phaser.Scene {
         constructor(){ super('DialogueScene'); }
         init(data){ this.lines = data.lines || []; }
         create(){
           const w = this.scale.width, h = this.scale.height;
-          const bg = this.add.graphics();
-          bg.fillStyle(0x000000, 0.7);
-          bg.fillRect(w/4, h/4, w/2, h/4);
+          const box = this.add.graphics().fillStyle(0x000000, 0.7)
+            .fillRect(w/4, h/4, w/2, h/4);
 
-          // wrap each line if necessary
+          // wrap text at roughly (w/2 - 40) px
           this.lines.forEach((l, i) => {
-            const text = this.add.text(w/4 + 20, h/4 + 20 + i*30, l, {
+            const wrapped = this.add.text(w/4 + 20, h/4 + 20 + i*24, l, {
               fontSize: '18px',
               fill: '#fff',
-              wordWrap: { width: w/2 - 40, useAdvancedWrap: true }
+              wordWrap: { width: w/2 - 40 }
             });
           });
 
@@ -348,37 +356,36 @@
             this.scene.resume('Main');
             this.scene.get('Main').events.emit('dialogueClosed');
           };
-
           this.input.keyboard.once('keydown-ESC', closeDialog);
           this.input.once('pointerdown', closeDialog);
         }
       }
 
-      // Choice Scene
+      // --- Choice Scene ----------------------------------------
       class ChoiceScene extends Phaser.Scene {
         constructor(){ super('ChoiceScene'); }
-        init(data) {
+        init(data){
           this.question = data.question;
-          this.options  = data.options || [];
+          this.options = data.options || [];
           this.callback = data.callback;
         }
         create(){
           const w = this.scale.width, h = this.scale.height;
-          const bg = this.add.graphics();
-          bg.fillStyle(0x000000, 0.7);
-          bg.fillRect(w/4, h/4, w/2, h/4);
+          this.add.graphics().fillStyle(0x000000, 0.7)
+            .fillRect(w/4, h/4, w/2, h/4);
 
+          // question text
           this.add.text(w/4 + 20, h/4 + 20, this.question, {
             fontSize: '18px',
             fill: '#fff',
-            wordWrap: { width: w/2 - 40, useAdvancedWrap: true }
+            wordWrap: { width: w/2 - 40 }
           });
 
           this.options.forEach((opt, idx) => {
             const txt = this.add.text(w/4 + 40, h/4 + 60 + idx*30, opt, {
               fontSize: '16px',
               fill: '#ff0',
-              wordWrap: { width: w/2 - 80, useAdvancedWrap: true }
+              wordWrap: { width: w/2 - 80 }
             }).setInteractive();
 
             txt.on('pointerdown', () => {
@@ -390,25 +397,268 @@
         }
       }
 
-      // Trade Scene (placeholder UI)
+      // --- Inventory Scene -------------------------------------
+      class InventoryScene extends Phaser.Scene {
+        constructor(){ super('InventoryScene'); }
+        init(data){
+          this.playerInv = data.playerInv;
+          this.chestInv = data.chestInv || [];
+          this.showChest = data.chestInv !== null;
+        }
+        create(){
+          const w = this.scale.width;
+          this.pw = 200; this.ph = 300;
+
+          // left panel for player inventory
+          this.leftPanel = new Phaser.Geom.Rectangle(50, 50, this.pw, this.ph);
+          // right panel for chest if needed
+          if (this.showChest) {
+            this.rightPanel = new Phaser.Geom.Rectangle(w - 50 - this.pw, 50, this.pw, this.ph);
+          }
+
+          // group holding all UI sprites/text
+          this.uiGroup = this.add.group();
+
+          // zones for dragging
+          this.leftZone = this.add.zone(this.leftPanel.x, this.leftPanel.y, this.pw, 20)
+            .setOrigin(0)
+            .setInteractive();
+          if (this.showChest) {
+            this.rightZone = this.add.zone(this.rightPanel.x, this.rightPanel.y, this.pw, 20)
+              .setOrigin(0)
+              .setInteractive();
+          }
+
+          // make these zones draggable
+          const draggableZones = [this.leftZone];
+          if (this.showChest) draggableZones.push(this.rightZone);
+          this.input.setDraggable(draggableZones);
+
+          this.input.on('drag', (pointer, gameObject, dx, dy) => {
+            if (gameObject === this.leftZone) {
+              this.leftPanel.x = dx; this.leftZone.x = dx;
+              this.leftPanel.y = dy; this.leftZone.y = dy;
+              this.redraw();
+            } else if (this.showChest && gameObject === this.rightZone) {
+              this.rightPanel.x = dx; this.rightZone.x = dx;
+              this.rightPanel.y = dy; this.rightZone.y = dy;
+              this.redraw();
+            }
+          });
+          this.input.on('dragend', this.onDragEnd, this);
+
+          // close on ESC or I
+          this.input.keyboard.once('keydown-ESC', () => this.close());
+          this.input.keyboard.once('keydown-I', () => this.close());
+
+          // initial draw
+          this.redraw();
+        }
+
+        redraw(){
+          // clear previous UI
+          this.uiGroup.clear(true, true);
+
+          // draw player inventory background
+          const g = this.add.graphics();
+          g.fillStyle(0x222222, 0.9);
+          g.fillRectShape(this.leftPanel);
+          this.uiGroup.add(g);
+
+          // title
+          const titlePlayer = this.add.text(this.leftPanel.x + 10, this.leftPanel.y + 5, 'Inventory', {
+            fontSize: '18px',
+            fill: '#fff'
+          });
+          this.uiGroup.add(titlePlayer);
+
+          // draw chest background if needed
+          if (this.showChest) {
+            const g2 = this.add.graphics();
+            g2.fillStyle(0x333333, 0.9);
+            g2.fillRectShape(this.rightPanel);
+            this.uiGroup.add(g2);
+
+            const titleChest = this.add.text(this.rightPanel.x + 10, this.rightPanel.y + 5, 'Chest', {
+              fontSize: '18px',
+              fill: '#fff'
+            });
+            this.uiGroup.add(titleChest);
+          }
+
+          // draw slots/grids
+          this.drawSlots();
+        }
+
+        drawSlots(){
+          // each panel is 4 cols x 5 rows
+          const cols = 4, rows = 5;
+          const slotSize = 32;
+          const padding = 10;
+
+          // player inventory slots
+          for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+              const x = this.leftPanel.x + padding + c*(slotSize + 5);
+              const y = this.leftPanel.y + 30 + r*(slotSize + 5);
+              const rect = this.add.graphics();
+              rect.lineStyle(2, 0xffffff, 1);
+              rect.strokeRect(x, y, slotSize, slotSize);
+              this.uiGroup.add(rect);
+            }
+          }
+
+          // chest slots if needed
+          if (this.showChest) {
+            for (let r = 0; r < rows; r++) {
+              for (let c = 0; c < cols; c++) {
+                const x = this.rightPanel.x + padding + c*(slotSize + 5);
+                const y = this.rightPanel.y + 30 + r*(slotSize + 5);
+                const rect = this.add.graphics();
+                rect.lineStyle(2, 0xffffff, 1);
+                rect.strokeRect(x, y, slotSize, slotSize);
+                this.uiGroup.add(rect);
+              }
+            }
+          }
+
+          // draw actual items (playerInv)
+          this.playerInv.forEach((item, idx) => {
+            if (!item) return;
+            const r = Math.floor(idx / cols);
+            const c = idx % cols;
+            const x = this.leftPanel.x + padding + c*(slotSize + 5);
+            const y = this.leftPanel.y + 30 + r*(slotSize + 5);
+            const spr = this.add.image(x + slotSize/2, y + slotSize/2, item.iconKey)
+              .setDisplaySize(slotSize - 4, slotSize - 4)
+              .setInteractive({ draggable: true })
+              .setData({ idx, from: 'player' });
+            this.uiGroup.add(spr);
+
+            // stack count
+            if (item.count > 1) {
+              const txt = this.add.text(x + slotSize - 12, y + slotSize - 12, item.count, {
+                fontSize: '12px', fill:'#fff'
+              });
+              this.uiGroup.add(txt);
+            }
+
+            // drag handlers
+            spr.on('dragstart', () => {
+              this.children.bringToTop(spr);
+            });
+            spr.on('drag', (pointer, dragX, dragY) => {
+              spr.x = dragX;
+              spr.y = dragY;
+            });
+            spr.on('dragend', (pointer, dragX, dragY) => {
+              this.onDragEndItem(spr, dragX, dragY);
+            });
+          });
+
+          // draw chest items if needed
+          if (this.showChest) {
+            this.chestInv.forEach((item, idx) => {
+              if (!item) return;
+              const r = Math.floor(idx / cols);
+              const c = idx % cols;
+              const x = this.rightPanel.x + padding + c*(slotSize + 5);
+              const y = this.rightPanel.y + 30 + r*(slotSize + 5);
+              const spr = this.add.image(x + slotSize/2, y + slotSize/2, item.iconKey)
+                .setDisplaySize(slotSize - 4, slotSize - 4)
+                .setInteractive({ draggable: true })
+                .setData({ idx, from: 'chest' });
+              this.uiGroup.add(spr);
+
+              if (item.count > 1) {
+                const txt = this.add.text(x + slotSize - 12, y + slotSize - 12, item.count, {
+                  fontSize: '12px', fill:'#fff'
+                });
+                this.uiGroup.add(txt);
+              }
+
+              spr.on('dragstart', () => {
+                this.children.bringToTop(spr);
+              });
+              spr.on('drag', (pointer, dragX, dragY) => {
+                spr.x = dragX;
+                spr.y = dragY;
+              });
+              spr.on('dragend', (pointer, dragX, dragY) => {
+                this.onDragEndItem(spr, dragX, dragY);
+              });
+            });
+          }
+        }
+
+        onDragEndItem(spr, dragX, dragY) {
+          // determine which slot it’s dropped onto
+          const cols = 4, rows = 5;
+          const slotSize = 32;
+          const padding = 10;
+
+          // if from player
+          if (spr.getData('from') === 'player') {
+            // check if dropped on chest side
+            if (this.showChest &&
+              dragX > this.rightPanel.x && dragX < this.rightPanel.x + this.pw &&
+              dragY > this.rightPanel.y && dragY < this.rightPanel.y + this.ph
+            ) {
+              // move item from playerInv[idx] to chestInv
+              const idx = spr.getData('idx');
+              const item = this.playerInv[idx];
+              if (item) {
+                this.chestInv.push(item);
+                this.playerInv.splice(idx, 1);
+              }
+            }
+          } else {
+            // from chest
+            if (
+              dragX > this.leftPanel.x && dragX < this.leftPanel.x + this.pw &&
+              dragY > this.leftPanel.y && dragY < this.leftPanel.y + this.ph
+            ) {
+              const idx = spr.getData('idx');
+              const item = this.chestInv[idx];
+              if (item) {
+                this.playerInv.push(item);
+                this.chestInv.splice(idx, 1);
+              }
+            }
+          }
+          this.redraw();
+        }
+
+        close() {
+          // emit updated inventory back to MainScene
+          this.scene.get('Main').events.emit('inventoryClosed', {
+            playerInv: this.playerInv,
+            chestInv: this.chestInv
+          });
+          this.scene.stop('InventoryScene');
+        }
+      }
+
+      // --- Trade Scene (placeholder UI) ----------------------
       class TradeScene extends Phaser.Scene {
         constructor(){ super('TradeScene'); }
         init(data) {
           this.npcId = data.npcId;
+          this.playerInv = data.playerInv;
         }
         create(){
           const w = this.scale.width, h = this.scale.height;
-          const bg = this.add.graphics();
-          bg.fillStyle(0x000000, 0.8);
-          bg.fillRect(w/4, h/4, w/2, h/2);
+          this.add.graphics().fillStyle(0x000000, 0.8)
+            .fillRect(w/4, h/4, w/2, h/2);
 
-          const txt = this.add.text(w/4 + 20, h/4 + 20, 
-            `Trading with ${this.npcId}`, {
-              fontSize: '18px', fill: '#fff',
-              wordWrap: { width: w/2 - 40, useAdvancedWrap: true }
-            }
-          );
+          // title with wrapping
+          this.add.text(w/4 + 20, h/4 + 20, `Trading with ${this.npcId}`, {
+            fontSize: '18px',
+            fill: '#fff',
+            wordWrap: { width: w/2 - 40 }
+          });
 
+          // close on ESC
           this.input.keyboard.once('keydown-ESC', () => {
             this.scene.stop('TradeScene');
             this.scene.resume('Main');
@@ -416,118 +666,29 @@
         }
       }
 
-      // Inventory Scene
-      class InventoryScene extends Phaser.Scene {
-        constructor(){ super('InventoryScene'); }
-        init(data) {
-          this.playerInv = data.playerInv;
-          this.chestInv  = data.chestInv || [];
-          this.showChest = data.chestInv !== null;
-        }
-        create(){
-          const w = this.scale.width, h = this.scale.height;
-          this.pw = 200; this.ph = 300;
-
-          // Background rectangle
-          this.back = this.add.graphics();
-          this.back.fillStyle(0x333333, 0.8);
-          this.back.fillRect(w/4 - 10, h/4 - 10, this.pw + 20, this.ph + 20);
-
-          if (this.showChest) {
-            this.back.fillRect(w - w/4 - this.pw - 10, h/4 - 10, this.pw + 20, this.ph + 20);
-          }
-
-          // Inventory Title
-          this.add.text(w/4, h/4 - 30, 'Inventory', { fontSize:'20px', fill:'#fff' });
-
-          // Slots & items (simplest possible grid)
-          this.drawSlots();
-
-          // Draggable window: only click‐and‐drag on background
-          this.zone = this.add.zone(w/4, h/4, this.pw, this.ph)
-            .setOrigin(0)
-            .setInteractive({ draggable: true });
-
-          this.input.setDraggable([ this.zone ]);
-
-          this.input.on('drag', (pointer, obj, dx, dy) => {
-            if (obj === this.zone) {
-              const newX = dx, newY = dy;
-              this.back.x = newX - 10;
-              this.back.y = newY - 10;
-              this.redraw(newX, newY);
-            }
-          });
-
-          this.input.keyboard.on('keydown-ESC', () => this.close());
-          this.input.keyboard.on('keydown-I',   () => this.close());
-
-          // Update on inventoryUpdated
-          this.scene.get('Main').events.on('inventoryUpdated', data => {
-            this.playerInv = data.playerInv;
-            this.redraw();
-          });
-        }
-
-        drawSlots(offsetX = 0, offsetY = 0) {
-          // Clear old UI
-          if (this.slotGroup) this.slotGroup.clear(true, true);
-          this.slotGroup = this.add.group();
-
-          // Draw 4×5 grid of item icons
-          const baseX = this.zone.x, baseY = this.zone.y;
-          const slotSize = 40, padding = 5;
-          for (let row = 0; row < 5; row++) {
-            for (let col = 0; col < 4; col++) {
-              const sx = baseX + offsetX + col * (slotSize + padding);
-              const sy = baseY + offsetY + row * (slotSize + padding);
-
-              const slotRect = this.add.rectangle(sx, sy, slotSize, slotSize, 0x555555)
-                .setOrigin(0)
-                .setStrokeStyle(2, 0xffffff);
-              this.slotGroup.add(slotRect);
-            }
-          }
-
-          // Draw actual playerInv items
-          this.playerInv.forEach((item, idx) => {
-            const col = idx % 4;
-            const row = Math.floor(idx / 4);
-            const sx = baseX + offsetX + col * (slotSize + padding) + slotSize / 2;
-            const sy = baseY + offsetY + row * (slotSize + padding) + slotSize / 2;
-
-            const icon = this.add.image(sx, sy, item.iconKey)
-              .setDisplaySize(32, 32)
-              .setDepth(1)
-              .setInteractive({ draggable: true });
-            icon.setData('itemData', item);
-            this.slotGroup.add(icon);
-
-            // Stack count
-            if (item.count > 1) {
-              this.add.text(sx + 12, sy + 12, item.count, {
-                fontSize: '14px', fill: '#fff'
-              }).setDepth(2).setOrigin(1, 1);
-            }
-          });
-        }
-
-        redraw(newX = 0, newY = 0) {
-          this.drawSlots(newX, newY);
-        }
-
-        close() {
-          this.scene.stop('InventoryScene');
-          this.scene.scene.resume('Main');
-        }
-      }
-
+      // --- Phaser Config & Launch ---------------------------
       const config = {
         type: Phaser.AUTO,
         parent: 'game-container',
-        scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
-        physics: { default: 'arcade' },
-        scene: [ BootScene, PreloadScene, MainScene, DialogueScene, ChoiceScene, TradeScene, InventoryScene ]
+        scale: {
+          mode: Phaser.Scale.FIT,
+          autoCenter: Phaser.Scale.CENTER_BOTH
+        },
+        physics: {
+          default: 'arcade',
+          arcade: {
+            gravity: { y: 0 }
+          }
+        },
+        scene: [
+          BootScene,
+          PreloadScene,
+          MainScene,
+          DialogueScene,
+          ChoiceScene,
+          TradeScene,
+          InventoryScene
+        ]
       };
       new Phaser.Game(config);
     });
