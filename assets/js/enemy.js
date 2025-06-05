@@ -1,155 +1,198 @@
 // assets/js/enemy.js
 
-export class Enemy extends Phaser.GameObjects.Container {
+/**
+ * Slime class:
+ * - Roams in a 64×64 px square around its spawn point
+ * - If the player is within a certain distance, it chases/attacks
+ * - When killed, drops 2–5 coins that the player can pick up
+ * - Displays a health bar and “Slime – Lvl X” above itself when active
+ */
+
+export class Slime extends Phaser.GameObjects.Container {
   /**
    * @param {Phaser.Scene} scene
-   * @param {number} isoX - isometric X coordinate
-   * @param {number} isoY - isometric Y coordinate
-   * @param {string} texture - key of the spriteatlas / spritesheet
-   * @param {number} level - slime level
+   * @param {number} isoX  – tile X coord
+   * @param {number} isoY  – tile Y coord
+   * @param {number} level – slime level (determines HP, damage)
    */
-  constructor(scene, isoX, isoY, texture, level = 1) {
-    super(scene);
+  constructor(scene, isoX, isoY, level = 1) {
+    super(scene, 0, 0);
 
-    this.scene   = scene;
-    this.isoX    = isoX;
-    this.isoY    = isoY;
-    this.texture = texture;
-    this.level   = level;
+    this.scene = scene;
+    this.isoX = isoX;
+    this.isoY = isoY;
+    this.level = level;
+    this.maxHP = 5 + level * 5;
+    this.hp = this.maxHP;
+    this.damage = 1 + level; // example scaling
 
-    // Derived stats
-    this.maxHp = 5 * level;
-    this.hp    = this.maxHp;
-    this.speed = 1 + 0.2 * level;
-    this.state = 'idle';
+    // Convert isometric coords into world (screen) coords
+    const worldX = (isoX - isoY) * (scene.tileW / 2) + scene.offsetX;
+    const worldY = (isoX + isoY) * (scene.tileH / 2) + scene.offsetY;
 
-    // Convert isometric coords to screen coords
-    const tileW = scene.tileW, tileH = scene.tileH;
-    const px = (isoX - isoY) * (tileW/2) + scene.offsetX;
-    const py = (isoX + isoY) * (tileH/2) + scene.offsetY;
+    // Create the slime sprite
+    this.sprite = scene.add.sprite(0, 0, 'slime');
+    this.sprite.setDisplaySize(32, 32);
+    this.add(this.sprite);
 
-    // 1) The actual sprite
-    this.sprite = scene.add.sprite(0, 0, texture)
-      .setOrigin(0.5, 1);
+    // Create a health bar (simple red/green), initially hidden
+    this.healthBarBg = scene.add.graphics();
+    this.healthBarBg.fillStyle(0x000000, 0.5);
+    this.healthBarBg.fillRect(-16, -24, 32, 6);
+    this.healthBarBg.setVisible(false);
+    this.add(this.healthBarBg);
 
-    // 2) Name + Level text above
-    this.nameText = scene.add.text(0, -48, `Slime - Lvl ${level}`, {
-      fontSize: '12px', fill: '#fff', stroke: '#000', strokeThickness: 2
+    this.healthBar = scene.add.graphics();
+    this.healthBar.fillStyle(0x00ff00, 1);
+    this.healthBar.fillRect(-16, -24, 32 * (this.hp / this.maxHP), 6);
+    this.healthBar.setVisible(false);
+    this.add(this.healthBar);
+
+    // Name and level text
+    this.nameText = scene.add.text(0, -36, `Slime - Lvl ${this.level}`, {
+      fontSize: '12px',
+      fill: '#fff'
     }).setOrigin(0.5);
+    this.nameText.setVisible(false);
+    this.add(this.nameText);
 
-    // 3) Health bar graphics container
-    this.healthBarBG = scene.add.graphics();
-    this.healthBarFG = scene.add.graphics();
+    // Add physics body to container
+    scene.physics.world.enable(this);
+    this.body.setSize(32, 32);
+    this.body.setAllowGravity(false);
 
-    // Draw initial healthbar
-    this.drawHealthBar();
+    // Place container at correct world coords
+    this.setPosition(worldX, worldY);
+    this.setDepth(worldY);
 
-    // 4) Combine into this container
-    this.add([ this.sprite, this.nameText, this.healthBarBG, this.healthBarFG ]);
-    this.setPosition(px, py);
-    this.setDepth(py);
-
-    // 5) Add to scene & physics
     scene.add.existing(this);
-    scene.physics.add.existing(this);
 
-    // Slightly smaller hitbox
-    this.body.setSize(16, 12).setOffset(-8, -12);
+    // State machine variables
+    this.state = 'idle'; // 'idle', 'chase', 'retreat'
+    this.idleTimer = 0;
+    this.chaseSpeed = 30 + level * 5;
+    this.roamRange = 64; // px in each direction from origin
+    this.originX = worldX;
+    this.originY = worldY;
 
-    // Register in NPCManager
-    if (!scene.npcManager.enemies) {
-      scene.npcManager.enemies = [];
-    }
-    scene.npcManager.enemies.push(this);
+    // Add to the update list
+    this.scene.events.on('update', this.update, this);
 
-    // Convenience reference for the UI container
-    this.uiContainer = scene.add.container(px, py - 60, [ this.nameText, this.healthBarBG, this.healthBarFG ]);
-    this.uiContainer.setDepth(py + 1);
-
-    // Flail tween for idle
-    scene.tweens.add({
-      targets: this,
-      y: this.y - 4,
-      duration: 800,
-      yoyo: true,
-      repeat: -1
-    });
-
-    this.state = 'idle';
-  }
-
-  /** Redraw health bar background and fill */
-  drawHealthBar() {
-    const barW = 40, barH = 6;
-    this.healthBarBG.clear();
-    this.healthBarBG.fillStyle(0x000000, 0.6);
-    this.healthBarBG.fillRect(-barW/2, -40, barW, barH);
-
-    this.healthBarFG.clear();
-    this.healthBarFG.fillStyle(0xff0000, 1);
-    const pct = Phaser.Math.Clamp(this.hp / this.maxHp, 0, 1);
-    this.healthBarFG.fillRect(-barW/2 + 1, -40 + 1, (barW - 2) * pct, barH - 2);
-  }
-
-  /** Called every frame from Scene.update (if you hook it in) */
-  update(time, delta) {
-    // If dead, skip movement
-    if (this.state === 'dead') return;
-
-    // Simple roam AI: if player is within detection radius, chase
-    const px = this.scene.player.x, py = this.scene.player.y;
-    const dx = px - this.x, dy = py - this.y;
-    const dist = Math.hypot(dx, dy);
-
-    if (dist < 200 && this.state !== 'attacking') {
-      // Move toward player
-      this.state = 'chasing';
-      const angle = Math.atan2(dy, dx);
-      const vx = Math.cos(angle) * this.speed;
-      const vy = Math.sin(angle) * this.speed;
-      this.body.setVelocity(vx, vy);
-    } else {
-      // Idle / roam
-      this.state = 'idle';
-      this.body.setVelocity(0, 0);
-    }
-
-    // Update screen position & depth
-    const tileW = this.scene.tileW, tileH = this.scene.tileH;
-    const isoX = this.isoX, isoY = this.isoY;
-    // Optionally update isoX/isoY from actual x,y if you want true iso reproduction.
-
-    // Ensure UI (health/name) stays above sprite
-    this.uiContainer.setPosition(this.x, this.y - this.sprite.height);
-    this.uiContainer.setDepth(this.y + 1);
-  }
-
-  /** Called when taking damage */
-  takeDamage(amount) {
-    if (this.state === 'dead') return;
-    this.hp = Phaser.Math.Clamp(this.hp - amount, 0, this.maxHp);
-    this.drawHealthBar();
-    if (this.hp <= 0) {
-      this.state = 'dead';
-      this.playDeath();
-    }
-  }
-
-  /** Fade out, drop 2–5 coins, then destroy */
-  playDeath() {
-    const sceneRef = this.scene;
-    sceneRef.tweens.add({
-      targets: [ this, this.uiContainer ],
-      alpha: 0,
-      duration: 300,
-      onComplete: () => {
-        // Drop 2–5 coins
-        const dropCount = Phaser.Math.Between(2, 5);
-        sceneRef.spawnLoot(this.isoX, this.isoY, 'coin', dropCount);
-
-        this.uiContainer.destroy();
+    // On death animation complete, drop loot
+    this.sprite.on('animationcomplete', (anim) => {
+      if (anim.key === 'slime-die') {
+        const randCoins = Phaser.Math.Between(2, 5);
+        scene.spawnLoot(this.x, this.y, 'coin', randCoins);
         this.destroy();
       }
     });
+
+    // set interactive to be clickable
+    this.setSize(32, 32);
+    this.setInteractive(new Phaser.Geom.Rectangle(-16, -32, 32, 48), Phaser.Geom.Rectangle.Contains);
+    this.on('pointerdown', () => {
+      // allow clicking as well as pointerdown to damage (if in range)
+      this.takeDamage(1);
+    });
+  }
+
+  takeDamage(amount) {
+    this.hp -= amount;
+    if (this.hp <= 0) {
+      this.hp = 0;
+      this.healthBarBg.setVisible(false);
+      this.healthBar.setVisible(false);
+      this.nameText.setVisible(false);
+      // play death anim
+      this.sprite.play('slime-die', true);
+    } else {
+      // update health bar width
+      this.healthBar.clear();
+      this.healthBar.fillStyle(0x00ff00, 1);
+      this.healthBar.fillRect(-16, -24, 32 * (this.hp / this.maxHP), 6);
+    }
+  }
+
+  update(time, delta) {
+    // Always face “down” (no direction change placeholder)
+    if (this.hp <= 0) return;
+
+    const player = this.scene.player;
+    const distToPlayer = Phaser.Math.Distance.Between(this.x, this.y, player.x, player.y);
+
+    // Show HP bar + nameText if player is somewhat near
+    if (distToPlayer < 150) {
+      this.healthBarBg.setVisible(true);
+      this.healthBar.setVisible(true);
+      this.nameText.setVisible(true);
+    } else {
+      this.healthBarBg.setVisible(false);
+      this.healthBar.setVisible(false);
+      this.nameText.setVisible(false);
+    }
+
+    // Simple AI:
+    if (distToPlayer < 100) {
+      // chase
+      this.state = 'chase';
+    } else if (distToPlayer < 40) {
+      // retreat
+      this.state = 'retreat';
+    } else {
+      // idle roam
+      this.state = 'idle';
+    }
+
+    // Move based on state
+    if (this.state === 'chase') {
+      scene.physics.moveToObject(this, player, this.chaseSpeed);
+    } else if (this.state === 'retreat') {
+      // pick a random point away from player but near origin
+      const awayX = this.originX + Phaser.Math.Between(-this.roamRange, this.roamRange);
+      const awayY = this.originY + Phaser.Math.Between(-this.roamRange, this.roamRange);
+      scene.physics.moveTo(this, awayX, awayY, this.chaseSpeed);
+    } else {
+      // idle: small random jitter around origin
+      this.idleTimer -= delta;
+      if (this.idleTimer <= 0) {
+        this.idleTimer = Phaser.Math.Between(1000, 3000);
+        const randX = this.originX + Phaser.Math.Between(-this.roamRange, this.roamRange);
+        const randY = this.originY + Phaser.Math.Between(-this.roamRange, this.roamRange);
+        scene.physics.moveTo(this, randX, randY, 20 + this.level * 2);
+      }
+    }
+
+    // Update container depth so it sorts properly
+    this.setDepth(this.y);
+
+    // update healthBar / nameText positions if needed
+    this.healthBarBg.setPosition(0, 0);
+    this.healthBar.setPosition(0, 0);
+    this.nameText.setPosition(0, -36);
   }
 }
+
+// Create the slime animations at a global level (once)
+Phaser.Animations.AnimationManager.prototype.generateSlimeAnims = function(scene) {
+  // idle / move (same frame)
+  scene.anims.create({
+    key: 'slime-idle',
+    frames: [{ key: 'slime', frame: 0 }],
+    frameRate: 1,
+    repeat: -1
+  });
+  // die animation (assuming 4 frames in your slime.png, else adjust)
+  scene.anims.create({
+    key: 'slime-die',
+    frames: scene.anims.generateFrameNumbers('slime', { start:0, end:3 }),
+    frameRate: 8,
+    repeat: 0
+  });
+};
+
+// Hook into any scene that might load this file
+Phaser.Scene.prototype.events.once('create', function() {
+  if (this.textures.exists('slime')) {
+    this.anims.generateSlimeAnims(this);
+  }
+}, this);
