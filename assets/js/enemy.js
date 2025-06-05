@@ -1,171 +1,153 @@
 // assets/js/enemy.js
 
-export class Slime extends Phaser.GameObjects.Container {
+export class Enemy extends Phaser.GameObjects.Container {
   /**
    * @param {Phaser.Scene} scene
-   * @param {number} isoX   – isometric X coordinate
-   * @param {number} isoY   – isometric Y coordinate
-   * @param {string} texture – key for the slime image
-   * @param {number} level   – integer level (affects HP, damage, loot)
+   * @param {number} isoX - isometric X coordinate
+   * @param {number} isoY - isometric Y coordinate
+   * @param {string} texture - key of the spriteatlas / spritesheet
+   * @param {number} level - slime level
    */
   constructor(scene, isoX, isoY, texture, level = 1) {
     super(scene);
-    this.scene = scene;
-    this.isoX = isoX;
-    this.isoY = isoY;
-    this.level = level;
 
-    // Basic stats:
+    this.scene   = scene;
+    this.isoX    = isoX;
+    this.isoY    = isoY;
+    this.texture = texture;
+    this.level   = level;
+
+    // Derived stats
     this.maxHp = 5 * level;
     this.hp    = this.maxHp;
-    this.speed = 50 + (level * 10); // px/sec
+    this.speed = 1 + 0.2 * level;
     this.state = 'idle';
 
-    // Convert isometric coords → screen (x, y):
-    const px = (isoX - isoY) * (scene.tileW / 2) + scene.offsetX;
-    const py = (isoX + isoY) * (scene.tileH / 2) + scene.offsetY;
+    // Convert isometric coords to screen coords
+    const tileW = scene.tileW, tileH = scene.tileH;
+    const px = (isoX - isoY) * (tileW/2) + scene.offsetX;
+    const py = (isoX + isoY) * (tileH/2) + scene.offsetY;
 
-    // Add the slime sprite:
-    this.sprite = scene.add.sprite(0, 0, texture);
-    this.sprite.setOrigin(0.5, 1);
-    this.add(this.sprite);
+    // 1) The actual sprite
+    this.sprite = scene.add.sprite(0, 0, texture)
+      .setOrigin(0.5, 1);
 
-    // Health bar graphics:
-    this.barBg = scene.add.rectangle(0, -this.sprite.height - 10, 40, 6, 0x000000, 0.6)
-      .setOrigin(0.5, 0.5);
-    this.barFill = scene.add.rectangle(
-      -20,
-      -this.sprite.height - 10,
-      40,
-      6,
-      0xff0000,
-      1
-    ).setOrigin(0, 0.5);
-    this.add(this.barBg);
-    this.add(this.barFill);
+    // 2) Name + Level text above
+    this.nameText = scene.add.text(0, -48, `Slime - Lvl ${level}`, {
+      fontSize: '12px', fill: '#fff', stroke: '#000', strokeThickness: 2
+    }).setOrigin(0.5);
 
-    // Name and level text:
-    this.nameTag = scene.add.text(
-      0, 
-      -this.sprite.height - 22,
-      `Slime - Lvl ${level}`,
-      { fontSize:'12px', fill:'#fff', stroke:'#000', strokeThickness:2 }
-    ).setOrigin(0.5, 0.5);
-    this.add(this.nameTag);
+    // 3) Health bar graphics container
+    this.healthBarBG = scene.add.graphics();
+    this.healthBarFG = scene.add.graphics();
 
-    // Container position & depth:
+    // Draw initial healthbar
+    this.drawHealthBar();
+
+    // 4) Combine into this container
+    this.add([ this.sprite, this.nameText, this.healthBarBG, this.healthBarFG ]);
     this.setPosition(px, py);
     this.setDepth(py);
 
-    // Enable physics body for overlap checks & movement:
-    scene.physics.world.enable(this);
-    this.body.setSize( this.sprite.width, this.sprite.height * 0.5 );
-    this.body.setOffset( -this.sprite.width/2, -this.sprite.height );
-
-    // Add to scene:
+    // 5) Add to scene & physics
     scene.add.existing(this);
-  }
+    scene.physics.add.existing(this);
 
-  /**
-   * Called by MainScene.update() each tick.
-   * Contains simple wander + follow logic.
-   */
-  update(time, delta) {
-    const player = this.scene.player;
-    if (!player) return;
+    // Slightly smaller hitbox
+    this.body.setSize(16, 12).setOffset(-8, -12);
 
-    const distToPlayer = Phaser.Math.Distance.Between(
-      this.x, this.y, player.x, player.y
-    );
-
-    const aggroRange = 100;
-    if (distToPlayer < aggroRange && this.state !== 'dead') {
-      // Pursue player:
-      this.state = 'chase';
-      this.scene.physics.moveToObject(
-        this, 
-        player, 
-        this.speed
-      );
-    } else if (this.state === 'chase') {
-      // Retreat if too close:
-      if (distToPlayer < 30) {
-        // Move away from player
-        const angle = Phaser.Math.Angle.Between(player.x, player.y, this.x, this.y);
-        this.body.setVelocity(
-          Math.cos(angle) * this.speed,
-          Math.sin(angle) * this.speed
-        );
-      } else {
-        // Stop if out of aggro range
-        this.body.setVelocity(0);
-        this.state = 'idle';
-      }
-    } else {
-      // Random wander:
-      if (this.state === 'idle') {
-        if (!this.idleTimer || time > this.idleTimer) {
-          this.state = 'wander';
-          this.idleTimer = time + Phaser.Math.Between(2000, 5000);
-          this.wanderAngle = Phaser.Math.FloatBetween(0, Math.PI*2);
-          this.wanderDuration = Phaser.Math.Between(1000, 2000);
-        }
-      } else if (this.state === 'wander') {
-        // Move in wanderAngle direction for wanderDuration:
-        this.body.setVelocity(
-          Math.cos(this.wanderAngle) * this.speed * 0.5,
-          Math.sin(this.wanderAngle) * this.speed * 0.5
-        );
-        if (time > this.idleTimer - (this.wanderDuration || 0)) {
-          this.state = 'idle';
-          this.body.setVelocity(0);
-        }
-      }
+    // Register in NPCManager
+    if (!scene.npcManager.enemies) {
+      scene.npcManager.enemies = [];
     }
+    scene.npcManager.enemies.push(this);
 
-    // Update depth as Y changes:
-    this.setDepth(this.y);
+    // Convenience reference for the UI container
+    this.uiContainer = scene.add.container(px, py - 60, [ this.nameText, this.healthBarBG, this.healthBarFG ]);
+    this.uiContainer.setDepth(py + 1);
 
-    // Update health bar length:
-    const hpPct = Phaser.Math.Clamp(this.hp / this.maxHp, 0, 1);
-    this.barFill.width = 40 * hpPct;
+    // Flail tween for idle
+    scene.tweens.add({
+      targets: this,
+      y: this.y - 4,
+      duration: 800,
+      yoyo: true,
+      repeat: -1
+    });
+
+    this.state = 'idle';
   }
 
-  /**
-   * Called externally when the Slime takes damage.
-   */
-  takeDamage(amount) {
+  /** Redraw health bar background and fill */
+  drawHealthBar() {
+    const barW = 40, barH = 6;
+    this.healthBarBG.clear();
+    this.healthBarBG.fillStyle(0x000000, 0.6);
+    this.healthBarBG.fillRect(-barW/2, -40, barW, barH);
+
+    this.healthBarFG.clear();
+    this.healthBarFG.fillStyle(0xff0000, 1);
+    const pct = Phaser.Math.Clamp(this.hp / this.maxHp, 0, 1);
+    this.healthBarFG.fillRect(-barW/2 + 1, -40 + 1, (barW - 2) * pct, barH - 2);
+  }
+
+  /** Called every frame from Scene.update (if you hook it in) */
+  update(time, delta) {
+    // If dead, skip movement
     if (this.state === 'dead') return;
 
-    this.hp -= amount;
+    // Simple roam AI: if player is within detection radius, chase
+    const px = this.scene.player.x, py = this.scene.player.y;
+    const dx = px - this.x, dy = py - this.y;
+    const dist = Math.hypot(dx, dy);
+
+    if (dist < 200 && this.state !== 'attacking') {
+      // Move toward player
+      this.state = 'chasing';
+      const angle = Math.atan2(dy, dx);
+      const vx = Math.cos(angle) * this.speed;
+      const vy = Math.sin(angle) * this.speed;
+      this.body.setVelocity(vx, vy);
+    } else {
+      // Idle / roam
+      this.state = 'idle';
+      this.body.setVelocity(0, 0);
+    }
+
+    // Update screen position & depth
+    const tileW = this.scene.tileW, tileH = this.scene.tileH;
+    const isoX = this.isoX, isoY = this.isoY;
+    // Optionally update isoX/isoY from actual x,y if you want true iso reproduction.
+
+    // Ensure UI (health/name) stays above sprite
+    this.uiContainer.setPosition(this.x, this.y - this.sprite.height);
+    this.uiContainer.setDepth(this.y + 1);
+  }
+
+  /** Called when taking damage */
+  takeDamage(amount) {
+    if (this.state === 'dead') return;
+    this.hp = Phaser.Math.Clamp(this.hp - amount, 0, this.maxHp);
+    this.drawHealthBar();
     if (this.hp <= 0) {
-      this.hp = 0;
+      this.state = 'dead';
       this.playDeath();
     }
   }
 
-  /**
-   * Fade out, drop 2–5 coins, then destroy everything.
-   */
+  /** Fade out, drop 2–5 coins, then destroy */
   playDeath() {
-    this.state = 'dead';
-    this.body.setVelocity(0, 0);
-    this.body.enable = false;
-
-    this.scene.tweens.add({
-      targets: [ this, this.barBg, this.barFill, this.nameTag ],
+    const sceneRef = this.scene;
+    sceneRef.tweens.add({
+      targets: [ this, this.uiContainer ],
       alpha: 0,
       duration: 300,
       onComplete: () => {
-        // Drop 2–5 coins at this isoX, isoY:
+        // Drop 2–5 coins
         const dropCount = Phaser.Math.Between(2, 5);
-        this.scene.spawnLoot(this.isoX, this.isoY, 'coin', dropCount);
+        sceneRef.spawnLoot(this.isoX, this.isoY, 'coin', dropCount);
 
-        // Destroy all sub‐objects:
-        this.barBg.destroy();
-        this.barFill.destroy();
-        this.nameTag.destroy();
-        this.sprite.destroy();
+        this.uiContainer.destroy();
         this.destroy();
       }
     });
