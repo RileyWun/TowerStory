@@ -31,31 +31,20 @@ export class Enemy extends Phaser.GameObjects.Sprite {
     this.setOrigin(0.5, 1);
     this.setDepth(this.y);
 
-    // ————— Build a little container for health bar + name tag —————
+    // Add a container to hold health bar + name tag
     this.uiContainer = scene.add.container(this.x, this.y);
     this.uiContainer.setDepth(this.depth + 1);
 
-    // Black background for the health bar
-    this.healthBarBg = scene.add.rectangle(
-      0, 
-      -this.height - 10, 
-      40, 
-      6, 
-      0x000000
-    ).setOrigin(0.5, 0.5);
+    // Health bar background
+    this.healthBarBg = scene.add.rectangle(0, -this.height - 10, 40, 6, 0x000000)
+      .setOrigin(0.5, 0.5);
+    // Health bar foreground (red)
+    this.healthBar = scene.add.rectangle(-20, -this.height - 10, 40, 6, 0xff0000)
+      .setOrigin(0, 0.5);
 
-    // Red foreground for the health bar
-    this.healthBar = scene.add.rectangle(
-      -20, 
-      -this.height - 10, 
-      40, 
-      6, 
-      0xff0000
-    ).setOrigin(0, 0.5);
-
-    // Name + Level text
+    // Name‐level text above health bar
     this.nameTag = scene.add.text(
-      0, 
+      0,
       -this.height - 22,
       `Slime – Lvl ${this.level}`,
       {
@@ -66,15 +55,15 @@ export class Enemy extends Phaser.GameObjects.Sprite {
       }
     ).setOrigin(0.5, 1);
 
-    // Hide UI initially
+    // Initially hide UI
     this.uiContainer.add([ this.healthBarBg, this.healthBar, this.nameTag ]);
     this.uiContainer.setVisible(false);
 
-    // Random wander direction
+    // Choose an initial random wander direction
     this.dirX = Phaser.Math.Between(-1, 1);
     this.dirY = Phaser.Math.Between(-1, 1);
 
-    // Every 1–2 seconds pick a new random direction
+    // Periodically pick a new random direction (every 1–2 seconds)
     scene.time.addEvent({
       delay: Phaser.Math.Between(1000, 2000),
       callback: () => {
@@ -86,12 +75,12 @@ export class Enemy extends Phaser.GameObjects.Sprite {
       loop: true
     });
 
-    // Keep within world bounds (optional)
+    // Allow collisions with world bounds
     this.body.setCollideWorldBounds(true);
   }
 
   /**
-   * Called when the slime takes damage.
+   * Reduce HP, show UI and trigger death if hp ≤ 0.
    */
   takeDamage(amount) {
     if (this.state === 'dead') {
@@ -106,11 +95,11 @@ export class Enemy extends Phaser.GameObjects.Sprite {
       this.updateHealthBar();
       this.playDeath();
     } else {
-      // Show health + name when struck
+      // Show health + name when hit
       this.uiContainer.setVisible(true);
       this.updateHealthBar();
 
-      // Hide again after 1.5 seconds if still alive
+      // Auto‐hide UI after 1.5 seconds (if still alive)
       this.scene.time.delayedCall(1500, () => {
         if (this.state !== 'dead') {
           this.uiContainer.setVisible(false);
@@ -120,7 +109,7 @@ export class Enemy extends Phaser.GameObjects.Sprite {
   }
 
   /**
-   * Updates the red portion of the health bar.
+   * Update health bar’s width to match current HP.
    */
   updateHealthBar() {
     const pct = Phaser.Math.Clamp(this.hp / this.maxHp, 0, 1);
@@ -128,14 +117,14 @@ export class Enemy extends Phaser.GameObjects.Sprite {
   }
 
   /**
-   * Called every frame by MainScene.update
+   * Called by MainScene.update(…) each frame.
    */
   update(time, delta) {
     if (this.state === 'dead') {
       return;
     }
 
-    // Measure (Manhattan) distance in iso‐coords to the player
+    // Compute Manhattan distance to player in iso coords
     const px = this.scene.playerIsoX,
           py = this.scene.playerIsoY;
     const dx = this.isoX - px,
@@ -143,19 +132,19 @@ export class Enemy extends Phaser.GameObjects.Sprite {
     const manDist = Math.abs(dx) + Math.abs(dy);
 
     if (manDist < 2) {
-      // ATTACK MODE: move toward player
+      // ATTACK: move toward the player
       this.state = 'attack';
       const moveX = dx < 0 ? 1 : dx > 0 ? -1 : 0;
       const moveY = dy < 0 ? 1 : dy > 0 ? -1 : 0;
       this.isoX += moveX * this.speed * (delta / 1000);
       this.isoY += moveY * this.speed * (delta / 1000);
     } else {
-      // WANDER MODE: random direction
+      // WANDER: random direction (even if far from the player)
       this.state = 'idle';
       this.isoX += this.dirX * this.speed * (delta / 1000);
       this.isoY += this.dirY * this.speed * (delta / 1000);
 
-      // Bounce off edges if wandering off‐map
+      // Bounce at map edges (keep inside bounds)
       if (
         this.isoX < 0 || this.isoX > this.scene.mapW ||
         this.isoY < 0 || this.isoY > this.scene.mapH
@@ -165,31 +154,32 @@ export class Enemy extends Phaser.GameObjects.Sprite {
       }
     }
 
-    // Convert iso coords → screen coords each frame
+    // Convert iso coords → screen coords
     const tileW = this.scene.tileW,
           tileH = this.scene.tileH;
     this.x = (this.isoX - this.isoY) * (tileW / 2) + this.scene.offsetX;
     this.y = (this.isoX + this.isoY) * (tileH / 2) + this.scene.offsetY;
     this.setDepth(this.y);
 
-    // Move the UI container above the slime
+    // Move the UI container directly above the sprite
     this.uiContainer
       .setPosition(this.x, this.y)
       .setDepth(this.depth + 1);
   }
 
   /**
-   * Plays a quick fade‐out, then drops 2–5 coins via scene.spawnLoot(...)
+   * Fade out on death, then drop loot and destroy.
    */
   playDeath() {
     const sceneRef = this.scene;
 
+    // Fade both sprite and its UI container
     sceneRef.tweens.add({
       targets: [ this, this.uiContainer ],
       alpha: 0,
       duration: 300,
       onComplete: () => {
-        // Drop a random 2–5 coins on death
+        // Drop 2–5 coins at isoX/isoY
         const dropCount = Phaser.Math.Between(2, 5);
         sceneRef.spawnLoot(
           this.isoX,
@@ -197,7 +187,6 @@ export class Enemy extends Phaser.GameObjects.Sprite {
           'coin',
           dropCount
         );
-
         this.uiContainer.destroy();
         this.destroy();
       }
