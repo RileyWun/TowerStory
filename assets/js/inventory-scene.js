@@ -1,3 +1,6 @@
+// assets/js/inventory-scene.js
+
+/**
  * InventoryScene
  *
  * Supports:
@@ -365,8 +368,8 @@ export class InventoryScene extends Phaser.Scene {
     });
 
     // 6) Close on ESC or “I”
-    this.input.keyboard.once('keydown-ESC', () => this.closeScene());
-    this.input.keyboard.once('keydown-I',   () => this.closeScene());
+    this.input.keyboard.once('keydown-ESC', () => this.close());
+    this.input.keyboard.once('keydown-I',   () => this.close());
   }
 
   /**
