@@ -61,6 +61,8 @@
           this.load.image('npc','assets/objects/npc.png');
           this.load.image('potion','assets/icons/potion.png');
           this.load.image('sword','assets/icons/sword.png');
+this.load.image('lean','assets/icons/lean.png');
+this.load.image('lean-fireball','assets/icons/lean-fireball.png');
           this.load.image('coin','assets/icons/coin.png');
           this.load.image('slime','assets/enemies/slime.png'); // placeholder slime
 
@@ -106,6 +108,7 @@
 
           // Player inventory & chests
           this.playerInv = [
+  { iconKey: 'lean', count: 1, type: 'weapon', name: 'Lean Cannon', damage: 1, range: 300, projectileKey: 'lean-fireball' },
             { iconKey: 'potion', count: 3 },
             { iconKey: 'sword', count: 1 },
             { iconKey: 'coin', count: 0 }
@@ -232,7 +235,17 @@
           const worldPoint = pointer.positionToCamera(this.cameras.main);
           const px = this.player.x;
           const py = this.player.y;
-          // find any enemy within attack radius (e.g. 50 px)
+          const weapon = this.equippedWeapon;
+if (weapon && weapon.projectileKey) {
+  const fireball = this.physics.add.image(this.player.x, this.player.y, weapon.projectileKey);
+  this.physics.moveTo(fireball, pointer.worldX, pointer.worldY, 300);
+  this.physics.add.overlap(fireball, this.enemies, (fb, enemy) => {
+    enemy.takeDamage(weapon.damage || 1);
+    fb.destroy();
+  });
+  return;
+}
+// find any enemy within attack radius (e.g. 50 px)
           this.enemies.getChildren().forEach(enemy => {
             const dist = Phaser.Math.Distance.Between(px, py, enemy.x, enemy.y);
             if (dist < 50) {
