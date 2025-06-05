@@ -1,6 +1,3 @@
-// assets/js/inventory-scene.js
-
-/**
  * InventoryScene
  *
  * Supports:
