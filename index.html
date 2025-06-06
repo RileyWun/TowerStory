@@ -445,7 +445,7 @@ if (weapon && weapon.projectileKey) {
           // make these zones draggable
           const draggableZones = [this.leftZone];
           if (this.showChest) draggableZones.push(this.rightZone);
-          this.input.setDraggable(draggableZones);
+          draggableZones.forEach(zone => this.input.setDraggable(zone));
 
           this.input.on('drag', (pointer, gameObject, dx, dy) => {
             if (gameObject === this.leftZone) {
