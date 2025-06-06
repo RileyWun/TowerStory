@@ -189,7 +189,7 @@ this.load.image('lean-fireball','assets/icons/lean-fireball.png');
             this.playerInv = data.playerInv;
             this.scene.resume();
           });
-          this.input.keyboard.on('keydown-I', () => this.openInventory(this.playerInv, null));
+          this.input.keyboard.on('keydown-I', this.openInventory.bind(this, this.playerInv, null));
           this.input.keyboard.on('keydown-E', () => {
             const { x, y } = this.player;
             this.chests.forEach(ch => {
