@@ -59,3 +59,38 @@ export class EquipmentScene extends Scene {
     this.scene.resume('Main');
   }
 }
+
+
+this.input.on('gameobjectover', (pointer, gameObject) => {
+  const item = gameObject.getData('item');
+  if (!item) return;
+  const tip = this.add.text(pointer.worldX + 10, pointer.worldY - 10,
+    item.name + '\n' +
+    'Type: ' + item.type + '\n' +
+    'Damage: ' + (item.damage || '-') + '\n' +
+    'Range: ' + (item.range || '-') , {
+      fontSize: '12px', fill: '#fff', backgroundColor: '#000'
+    }).setDepth(100).setPadding(4).setAlpha(1);
+  tip.setData('follow', true);
+  gameObject.setData('tooltip', tip);
+});
+
+this.input.on('gameobjectout', (pointer, gameObject) => {
+  const tip = gameObject.getData('tooltip');
+  if (tip) {
+    this.tweens.add({
+      targets: tip,
+      alpha: 0,
+      duration: 300,
+      onComplete: () => tip.destroy()
+    });
+  }
+});
+
+this.input.on('pointermove', (pointer) => {
+  this.children.each(child => {
+    if (child.getData && child.getData('follow')) {
+      child.setPosition(pointer.worldX + 10, pointer.worldY - 10);
+    }
+  });
+});
