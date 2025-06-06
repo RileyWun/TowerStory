@@ -442,27 +442,30 @@ if (weapon && weapon.projectileKey) {
               .setInteractive();
           }
 
-          // make these zones draggable
-          const draggableZones = [this.leftZone];
-          if (this.showChest) draggableZones.push(this.rightZone);
-          draggableZones.forEach(zone => this.input.setDraggable(zone));
+// make these zones draggable
+const draggableZones = [this.leftZone];
+if (this.showChest) draggableZones.push(this.rightZone);
+draggableZones.forEach(zone => this.input.setDraggable(zone));
 
-          this.input.on('drag', (pointer, gameObject, dx, dy) => {
-            if (gameObject === this.leftZone) {
-              this.leftPanel.x = dx; this.leftZone.x = dx;
-              this.leftPanel.y = dy; this.leftZone.y = dy;
-              this.redraw();
-            } else if (this.showChest && gameObject === this.rightZone) {
-              this.rightPanel.x = dx; this.rightZone.x = dx;
-              this.rightPanel.y = dy; this.rightZone.y = dy;
-              this.redraw();
-            }
-          });
-          this.input.on('dragend', this.onDragEnd, this);
+this.input.on('drag', (pointer, gameObject, dx, dy) => {
+  if (gameObject === this.leftZone) {
+    this.leftPanel.x = dx; this.leftZone.x = dx;
+    this.leftPanel.y = dy; this.leftZone.y = dy;
+    this.redraw();
+  } else if (this.showChest && gameObject === this.rightZone) {
+    this.rightPanel.x = dx; this.rightZone.x = dx;
+    this.rightPanel.y = dy; this.rightZone.y = dy;
+    this.redraw();
+  }
+});
+this.input.on('dragend', this.onDragEnd, this);
 
-          // close on ESC or I
-          this.input.keyboard.once('keydown-ESC', () => this.close());
-          this.input.keyboard.once('keydown-I', () => this.close());
+// REPLACES the faulty "once" lines with this:
+this.keyESC = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
+this.keyI = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.I);
+
+this.keyESC.on('down', () => this.close());
+this.keyI.on('down', () => this.close());
 
           // initial draw
           this.redraw();
