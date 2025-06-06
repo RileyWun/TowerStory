@@ -443,6 +443,7 @@ if (weapon && weapon.projectileKey) {
           }
 
 // make these zones draggable
+onDragEnd(pointer, gameObject) {
 const draggableZones = [this.leftZone];
 if (this.showChest) draggableZones.push(this.rightZone);
 draggableZones.forEach(zone => this.input.setDraggable(zone));
@@ -459,7 +460,9 @@ this.input.on('drag', (pointer, gameObject, dx, dy) => {
   }
 });
 this.input.on('dragend', this.onDragEnd, this);
-
+  console.log("Drag ended", gameObject);
+}
+          
 // REPLACES the faulty "once" lines with this:
 this.keyESC = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
 this.keyI = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.I);
