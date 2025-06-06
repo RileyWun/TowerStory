@@ -229,7 +229,39 @@ export class InventoryScene extends Phaser.Scene {
         .image(x, y, this.playerInv[i].iconKey)
         .setScale(0.5)
         .setDepth(10)
-        .setInteractive({ draggable: true });
+        .setInteractive({ draggable: true })
+        .on('pointerover', function (pointer) {
+          const item = this.getData('item');
+          const tooltip = this.scene.add.text(pointer.worldX + 10, pointer.worldY - 10,
+            item.name + '\n' +
+            'Type: ' + item.type + '\n' +
+            'Damage: ' + (item.damage || '-') + '\n' +
+            'Range: ' + (item.range || '-') , {
+              fontSize: '12px', fill: '#fff', backgroundColor: '#000'
+            }).setDepth(100).setPadding(4).setAlpha(1);
+          tooltip.setData('follow', true);
+          this.setData('tooltip', tooltip);
+        })
+        .on('pointerout', function () {
+          const tip = this.getData('tooltip');
+          if (tip) {
+            this.scene.tweens.add({
+              targets: tip,
+              alpha: 0,
+              duration: 300,
+              onComplete: () => tip.destroy()
+            });
+          }
+        })
+        .on('pointermove', function (pointer) {
+          const tip = this.getData('tooltip');
+          if (tip && tip.getData('follow')) {
+            tip.setPosition(pointer.worldX + 10, pointer.worldY - 10);
+          }
+        });
+, function () {
+          if (this.getData('tooltip')) this.getData('tooltip').destroy();
+        });
       icon.setData('from', 'player');
       icon.setData('index', i);
       this.group.add(icon);
@@ -256,7 +288,20 @@ export class InventoryScene extends Phaser.Scene {
           .image(x, y, this.chestInv[i].iconKey)
           .setScale(0.5)
           .setDepth(10)
-          .setInteractive({ draggable: true });
+          .setInteractive({ draggable: true })
+        .on('pointerover', function () {
+          const tooltip = this.scene.add.text(this.x + 32, this.y - 10,
+            this.getData('item').name + '\n' +
+            'Type: ' + this.getData('item').type + '\n' +
+            'Damage: ' + (this.getData('item').damage || '-') + '\n' +
+            'Range: ' + (this.getData('item').range || '-') , {
+              fontSize: '12px', fill: '#fff', backgroundColor: '#000'
+            }).setDepth(100).setPadding(4);
+          this.setData('tooltip', tooltip);
+        })
+        .on('pointerout', function () {
+          if (this.getData('tooltip')) this.getData('tooltip').destroy();
+        });
         icon.setData('from', 'chest');
         icon.setData('index', i);
         this.group.add(icon);
@@ -439,7 +484,20 @@ export class InventoryScene extends Phaser.Scene {
         .image(x, y, item.iconKey)
         .setScale(0.5)
         .setDepth(10)
-        .setInteractive({ draggable: true });
+        .setInteractive({ draggable: true })
+        .on('pointerover', function () {
+          const tooltip = this.scene.add.text(this.x + 32, this.y - 10,
+            this.getData('item').name + '\n' +
+            'Type: ' + this.getData('item').type + '\n' +
+            'Damage: ' + (this.getData('item').damage || '-') + '\n' +
+            'Range: ' + (this.getData('item').range || '-') , {
+              fontSize: '12px', fill: '#fff', backgroundColor: '#000'
+            }).setDepth(100).setPadding(4);
+          this.setData('tooltip', tooltip);
+        })
+        .on('pointerout', function () {
+          if (this.getData('tooltip')) this.getData('tooltip').destroy();
+        });
       icon.setData('from', 'player');
       icon.setData('index', i);
       this.group.add(icon);
@@ -465,7 +523,20 @@ export class InventoryScene extends Phaser.Scene {
           .image(x, y, item.iconKey)
           .setScale(0.5)
           .setDepth(10)
-          .setInteractive({ draggable: true });
+          .setInteractive({ draggable: true })
+        .on('pointerover', function () {
+          const tooltip = this.scene.add.text(this.x + 32, this.y - 10,
+            this.getData('item').name + '\n' +
+            'Type: ' + this.getData('item').type + '\n' +
+            'Damage: ' + (this.getData('item').damage || '-') + '\n' +
+            'Range: ' + (this.getData('item').range || '-') , {
+              fontSize: '12px', fill: '#fff', backgroundColor: '#000'
+            }).setDepth(100).setPadding(4);
+          this.setData('tooltip', tooltip);
+        })
+        .on('pointerout', function () {
+          if (this.getData('tooltip')) this.getData('tooltip').destroy();
+        });
         icon.setData('from', 'chest');
         icon.setData('index', i);
         icon.on('dragstart', () => this.children.bringToTop(icon));
